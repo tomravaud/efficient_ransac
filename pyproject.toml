@@ -1,0 +1,28 @@
+[build-system]
+requires = ["scikit-build-core"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "efficient_ransac"
+authors = [
+    {name = "Tom Ravaud", email = "tom.ravaud@eleves.enpc.fr"},
+    {name = "Nicolas Sereyjol-Garros", email = "nicolas.sereyjol-garros@eleves.enpc.fr"}
+]
+description = "An implementation of the Efficient RANSAC algorithm"
+dependencies = [
+    "numpy",
+    "nanobind",
+]
+readme = "README.md"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.ruff]
+extend-exclude = ["*.ipynb"]
+target-version = "py310"

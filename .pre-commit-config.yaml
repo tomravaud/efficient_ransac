@@ -1,0 +1,25 @@
+repos:
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.9.2
+  hooks:
+    - id: ruff  # linter
+      args: [--fix]
+    - id: ruff-format  # formatter
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+  - id: check-added-large-files
+  - id: check-ast
+  - id: check-json
+  - id: check-merge-conflict
+  - id: check-toml
+  - id: check-yaml
+  - id: detect-private-key
+  - id: end-of-file-fixer
+  - id: name-tests-test
+    args: [--pytest-test-first]
+  - id: trailing-whitespace
+- repo: https://github.com/pre-commit/mirrors-mypy
+  rev: v1.14.0
+  hooks:
+  - id: mypy
