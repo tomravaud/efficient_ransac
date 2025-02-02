@@ -1,22 +1,23 @@
 #pragma once
 
-#include <iostream>
 #include <chrono>
-#include <thread>
 #include <filesystem>
+#include <iostream>
+#include <thread>
 
 // pcl
 #include <pcl/io/ply_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
+using namespace pcl;
 
 class Viewer {
-public:
-    Viewer();
-    void setup();
-    void showCloud(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
-    void showCloud(const std::filesystem::path &filename);
+ public:
+  Viewer();
+  void setup();
+  void showCloud(const std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> &cloud);
+  void showCloud(const std::filesystem::path &filename);
 
-private:
-    pcl::visualization::PCLVisualizer::Ptr viewer;
+ private:
+  std::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 };

@@ -5,6 +5,7 @@ channels:
 dependencies:
   - python=3.10
   - pcl=1.14.1
+  - clang-format=19.1.7
   - pip
   - pip:
     - pytest

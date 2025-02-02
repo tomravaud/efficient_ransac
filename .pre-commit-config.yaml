@@ -23,3 +23,8 @@ repos:
   rev: v1.14.0
   hooks:
   - id: mypy
+- repo: https://github.com/pocc/pre-commit-hooks
+  rev: v1.3.5
+  hooks:
+    - id: clang-format
+      args: [--style=Google, -i]
