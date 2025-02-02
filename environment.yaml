@@ -4,6 +4,7 @@ channels:
    - defaults
 dependencies:
   - python=3.10
+  - pcl=1.14.1
   - pip
   - pip:
     - pytest

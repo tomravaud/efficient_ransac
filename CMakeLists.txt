@@ -23,10 +23,18 @@ execute_process(
 list(APPEND CMAKE_PREFIX_PATH "${NB_DIR}")
 find_package(nanobind CONFIG REQUIRED)
 
+# nanobind module
 nanobind_add_module(
-    _efficient_ransac_mod
-    efficient_ransac/bindings.cpp
-    efficient_ransac/addition.cpp
+  _efficient_ransac_mod
+  efficient_ransac/bindings.cpp
+  efficient_ransac/viewer/viewer.cpp
 )
+
+# pcl
+find_package(PCL 1.4 REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+target_link_libraries(_efficient_ransac_mod PRIVATE ${PCL_LIBRARIES})
 
 install(TARGETS _efficient_ransac_mod DESTINATION efficient_ransac)

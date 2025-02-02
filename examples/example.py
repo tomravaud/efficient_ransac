@@ -1,6 +1,8 @@
-from efficient_ransac import add, substract
+from pathlib import Path
+
+from efficient_ransac import Viewer
 
 
 if __name__ == "__main__":
-    print(add(1, 2))
-    print(substract(1, 2))
+    viewer = Viewer()
+    viewer.show_cloud(filepath=Path("data/bunny.ply"))
