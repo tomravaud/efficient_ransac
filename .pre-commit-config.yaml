@@ -9,6 +9,7 @@ repos:
   rev: v5.0.0
   hooks:
   - id: check-added-large-files
+    args: [--maxkb=2500]
   - id: check-ast
   - id: check-json
   - id: check-merge-conflict
