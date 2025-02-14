@@ -11,6 +11,8 @@
 
 using namespace pcl;
 
+namespace efficient_ransac {
+
 class Viewer {
  public:
   Viewer();
@@ -19,5 +21,7 @@ class Viewer {
   void showCloud(const std::filesystem::path &filename);
 
  private:
-  std::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
+  std::shared_ptr<pcl::visualization::PCLVisualizer> visualizer_;
 };
+
+}  // namespace efficient_ransac

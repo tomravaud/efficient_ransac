@@ -28,6 +28,9 @@ nanobind_add_module(
   _efficient_ransac_mod
   efficient_ransac/bindings.cpp
   efficient_ransac/viewer/viewer.cpp
+  efficient_ransac/detector/detector.cpp
+  efficient_ransac/shapes/shape.cpp
+  efficient_ransac/shapes/plane.cpp
 )
 
 # pcl

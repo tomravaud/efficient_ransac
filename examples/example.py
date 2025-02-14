@@ -1,8 +1,11 @@
 from pathlib import Path
 
-from efficient_ransac import Viewer
+from efficient_ransac import Detector
 
 
 if __name__ == "__main__":
-    viewer = Viewer()
-    viewer.show_cloud(filepath=Path("data/bunny.ply"))
+    # viewer = Viewer()
+    # viewer.show_cloud(filepath=Path("data/bunny.ply"))
+
+    detector = Detector()
+    detector.detect(filepath=Path("data/bunny.ply"))
