@@ -8,4 +8,5 @@ if __name__ == "__main__":
     # viewer.show_cloud(filepath=Path("data/bunny.ply"))
 
     detector = Detector()
-    detector.detect(filepath=Path("data/bunny.ply"))
+    detector.detect(filepath=Path("data/lille_street_small.ply"))
+    # detector.detect(filepath=Path("data/bunny.ply"))
