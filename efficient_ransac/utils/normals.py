@@ -95,6 +95,6 @@ def compute_normals_and_curvature(
     lambda_3, lambda_2, lambda_1 = all_eigenvalues.T
 
     normals = all_eigenvectors[:, :, 0]
-    curvature = lambda_3 / (lambda_1 + lambda_2 + lambda_3)
+    curvature = lambda_3 / (lambda_1 + lambda_2 + lambda_3 + 1e-6)
 
     return normals, curvature

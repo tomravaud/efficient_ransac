@@ -1,9 +1,8 @@
 #include "detector.h"
 
-
 namespace efficient_ransac {
 
-Detector::Detector() {srand(time(0));}
+Detector::Detector() { srand(time(0)); }
 
 int Detector::detect(const std::filesystem::path &filepath) {
   // params
@@ -12,9 +11,11 @@ int Detector::detect(const std::filesystem::path &filepath) {
   // const size_t num_subsets = 10;
   // resolution of the octree
   // const float octree_resolution = 0.01f;
+
   const float success_probability_threshold = 0.99f;
   const int num_candidates = 100;
   const int num_point_candidates = 3;
+  const int num_inliers_min = 50;
   const thresholds thresholds = {0.01, 0.1};
   // load metadata of the point cloud
   auto metadata = std::make_shared<pcl::PCLPointCloud2>();
@@ -47,61 +48,86 @@ int Detector::detect(const std::filesystem::path &filepath) {
   // * find inliers for each shape
   // * find the best shape and keep it if good enough
   // * if good enough update the point cloud
-  int num_valid_shapes = 0;
-  while (num_valid_shapes < num_candidates) {
-    // Sample points
-    std::set<int> unique_indices;
-    while (unique_indices.size() < 3) {
+
+  while (1 - pow(1 - pow((float)num_inliers_min /
+                             std::count(remaining_points.begin(),
+                                        remaining_points.end(), true),
+                         num_point_candidates),
+                 candidate_shapes.size()) <
+         success_probability_threshold) {
+    int num_valid_shapes = 0;
+    while (num_valid_shapes < num_candidates) {
+      // Sample points
+      std::set<int> unique_indices;
+      while (unique_indices.size() < num_point_candidates) {
         int random_index = rand() % cloud->size();
-        if (remaining_points[random_index]){
-          unique_indices.insert(random_index); // Only inserts unique values
-        }
-    }
-    std::vector<pcl::PointNormal> candidate_points;
-    for (int index : unique_indices){
+        if (remaining_points[random_index])
+          unique_indices.insert(random_index);  // Only inserts unique values
+      }
+      std::vector<pcl::PointNormal> candidate_points;
+      for (int index : unique_indices) {
         candidate_points.push_back(cloud->at(index));
-    }
-    // generate a new candidate shape
-    auto candidate_shape = std::make_unique<Plane>(candidate_points);
-    // check if the candidate shape is valid
-    if (candidate_shape->isValid(candidate_points,thresholds)) {
-      num_valid_shapes++;
-      candidate_shapes.push_back(std::move(candidate_shape));
-    }
-  }
-  int best_shape_index = -1;
-  int best_shape_num_inliers = 0;
-  std::vector<int> best_shape_inliers;
-  for (int i = 0; i < num_candidates; i++) {
-    // find inliers for the candidate shape
-    candidate_shapes[i]->computeInliersIndices(cloud,thresholds);
-    auto inliers = candidate_shapes[i]->inliersIndices();
-    // check if the candidate shape is the best
-    if (inliers.size() > best_shape_num_inliers) {
-      best_shape_index = i;
-      best_shape_num_inliers = inliers.size();
-      best_shape_inliers = inliers;
-    }
-  }
-  int cloud_size = std::count(remaining_points.begin(), remaining_points.end(), true);
-  if (1-pow(1-pow((float)best_shape_inliers.size()/cloud_size,num_point_candidates),candidate_shapes.size()) > success_probability_threshold){
-    // update the point cloud
-    for (auto index : best_shape_inliers) {
-      remaining_points[index] = false;
-    }  
-    extracted_shapes.push_back(std::move(candidate_shapes[best_shape_index]));
-    std::vector<std::shared_ptr<Shape>> candidate_shapes_tmp;
-    for (auto candidate_shape: candidate_shapes){
-      bool conflict = false;
-      for (int inlier: best_shape_inliers){
-        if (std::find(candidate_shape->inliersIndices().begin(), candidate_shape->inliersIndices().end(), inlier)!=candidate_shape->inliersIndices().end()){
-          conflict = true;
-          break;
-        }
-      if (!conflict) candidate_shapes_tmp.push_back(std::move(candidate_shape));
+      }
+      // generate a new candidate shape
+      auto candidate_shape = std::make_unique<Plane>(candidate_points);
+      // check if the candidate shape is valid
+      if (candidate_shape->isValid(candidate_points, thresholds)) {
+        num_valid_shapes++;
+        candidate_shapes.push_back(std::move(candidate_shape));
       }
     }
-    candidate_shapes = candidate_shapes_tmp;
+
+    int best_shape_index = -1;
+    int best_shape_num_inliers = 0;
+    std::vector<int> best_shape_inliers;
+
+    for (int i = 0; i < num_candidates; i++) {
+      // find inliers for the candidate shape
+      candidate_shapes[i]->computeInliersIndices(cloud, thresholds);
+      auto inliers = candidate_shapes[i]->inliersIndices();
+      // check if the candidate shape is the best
+      if (inliers.size() > best_shape_inliers.size()) {
+        best_shape_index = i;
+        best_shape_inliers = inliers;
+      }
+    }
+
+    int cloud_size =
+        std::count(remaining_points.begin(), remaining_points.end(), true);
+
+    std::cout << 1 - pow(1 - pow((float)best_shape_inliers.size() / cloud_size,
+                                 num_point_candidates),
+                         candidate_shapes.size())
+              << std::endl;
+
+    // if (pow(1 - pow((float)best_shape_inliers.size() / cloud_size,
+    //     num_point_candidates), candidate_shapes.size()) >
+    //     success_probability_threshold){
+    if (1 - pow(1 - pow((float)best_shape_inliers.size() / cloud_size,
+                        num_point_candidates),
+                candidate_shapes.size()) >
+        success_probability_threshold) {
+      // update the point cloud
+      for (auto index : best_shape_inliers) remaining_points[index] = false;
+
+      // add the best shape to the extracted shapes
+      extracted_shapes.push_back(std::move(candidate_shapes[best_shape_index]));
+      std::vector<std::shared_ptr<Shape>> candidate_shapes_tmp;
+      for (auto candidate_shape : candidate_shapes) {
+        bool conflict = false;
+        for (int inlier : best_shape_inliers) {
+          if (std::find(candidate_shape->inliersIndices().begin(),
+                        candidate_shape->inliersIndices().end(),
+                        inlier) != candidate_shape->inliersIndices().end()) {
+            conflict = true;
+            break;
+          }
+          if (!conflict)
+            candidate_shapes_tmp.push_back(std::move(candidate_shape));
+        }
+      }
+      candidate_shapes = candidate_shapes_tmp;
+    }
   }
 
   // create random subsets of the point cloud

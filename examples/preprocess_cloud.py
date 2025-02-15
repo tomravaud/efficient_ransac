@@ -26,6 +26,13 @@ if "__main__" == __name__:
     print("Computing normals and curvature...")
     normals, curvature = compute_normals_and_curvature(cloud, cloud, radius=0.1)
 
+    # decimate the point cloud
+    print("Decimating the point cloud...")
+    step = 100
+    cloud = cloud[::step]
+    normals = normals[::step]
+    curvature = curvature[::step]
+
     # save the modified point cloud
     write_ply(
         (data_path / f"{filename}_preprocessed.ply").as_posix(),
