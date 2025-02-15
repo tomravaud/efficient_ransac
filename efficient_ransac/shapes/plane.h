@@ -11,7 +11,7 @@ class Plane : public Shape {
   bool isValid(std::vector<pcl::PointNormal> candidate_points,
                thresholds thresholds) override;
 
-  std::vector<int> inliersIndices(
+  void computeInliersIndices(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
       const thresholds thresholds) override;
 

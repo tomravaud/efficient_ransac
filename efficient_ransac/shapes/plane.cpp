@@ -22,16 +22,15 @@ bool Plane::isValid(std::vector<pcl::PointNormal> candidate_points,
   return true;
 }
 
-std::vector<int> Plane::inliersIndices(
+void Plane::computeInliersIndices(
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
     const thresholds thresholds) {
-  std::vector<int> inliers_indices;
+  if (!(inliers_indices_.empty())) return;
   for (size_t i = 0; i < cloud->size(); i++) {
     if (distanceCheck(cloud->at(i).getVector3fMap(), thresholds.distance) &&
         normalCheck(cloud->at(i).getNormalVector3fMap(), thresholds.normal))
-      inliers_indices.push_back(i);
+      inliers_indices_.push_back(i);
   }
-  return inliers_indices;
 }
 
 }  // namespace efficient_ransac

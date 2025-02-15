@@ -1,16 +1,18 @@
-name: efficient_ransac
+name: efficient_ransac2
 channels:
    - conda-forge
    - defaults
 dependencies:
   - python=3.10
-  - pcl=1.14.1
   - clang-format=19.1.7
+  - boost
+  - eigen
+  - pcl=1.14.1
+  - nanobind
   - pip
   - pip:
     - pytest
     - pre-commit
     - numpy
-    - nanobind
     - scikit-learn
     - -e .
