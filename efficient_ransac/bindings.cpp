@@ -23,9 +23,9 @@ NB_MODULE(_efficient_ransac_mod, m) {
       .def(nb::init<>())
       // disambiguate overloaded methods
       .def("show_cloud",
-           static_cast<void (Viewer::*)(const std::filesystem::path&)>(
+           static_cast<void (Viewer::*)(const std::filesystem::path&, bool)>(
                &Viewer::showCloud),
-           "filepath"_a);
+           "filepath"_a, "show_normals"_a = false);
 
   // detector
   nb::class_<Detector>(m, "Detector")

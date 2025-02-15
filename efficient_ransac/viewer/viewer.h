@@ -9,16 +9,17 @@
 #include <pcl/io/ply_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
-using namespace pcl;
-
 namespace efficient_ransac {
 
 class Viewer {
  public:
   Viewer();
   void setup();
-  void showCloud(const std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> &cloud);
-  void showCloud(const std::filesystem::path &filename);
+  void showCloud(
+      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+      bool show_normals = false);
+  void showCloud(const std::filesystem::path &filename,
+                 bool show_normals = false);
 
  private:
   std::shared_ptr<pcl::visualization::PCLVisualizer> visualizer_;

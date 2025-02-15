@@ -12,4 +12,5 @@ dependencies:
     - pre-commit
     - numpy
     - nanobind
+    - scikit-learn
     - -e .
