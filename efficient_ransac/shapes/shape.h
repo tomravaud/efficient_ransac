@@ -3,8 +3,6 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
-#include "../utils/pcl_operations.h"
-
 namespace efficient_ransac {
 
 struct thresholds {
@@ -14,16 +12,13 @@ struct thresholds {
 
 class Shape {
  public:
-  Shape(std::vector<pcl::PointXYZ> candidate_points,
-        std::vector<pcl::Normal> candidate_normals) {}
+  Shape(std::vector<pcl::PointNormal> candidate_points) {}
 
-  virtual bool isValid(std::vector<pcl::PointXYZ> candidate_points,
-                       std::vector<pcl::Normal> candidate_normals,
+  virtual bool isValid(std::vector<pcl::PointNormal> candidate_points,
                        thresholds thresholds) = 0;
 
   virtual std::vector<int> inliersIndices(
-      const std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> &cloud,
-      const std::shared_ptr<pcl::PointCloud<pcl::Normal>> &normals,
+      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
       const thresholds thresholds) = 0;
 };
 

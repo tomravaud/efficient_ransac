@@ -6,28 +6,25 @@ namespace efficient_ransac {
 
 class Plane : public Shape {
  public:
-  Plane(std::vector<pcl::PointXYZ> candidate_points,
-        std::vector<pcl::Normal> candidate_normals);
+  Plane(std::vector<pcl::PointNormal> candidate_points);
 
-  bool isValid(std::vector<pcl::PointXYZ> candidate_points,
-               std::vector<pcl::Normal> candidate_normals,
+  bool isValid(std::vector<pcl::PointNormal> candidate_points,
                thresholds thresholds) override;
 
   std::vector<int> inliersIndices(
-      const std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> &cloud,
-      const std::shared_ptr<pcl::PointCloud<pcl::Normal>> &normals,
+      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
       const thresholds thresholds) override;
 
  private:
-  inline bool distanceCheck(pcl::PointXYZ point, double threshold) {
-    return abs(dot(normal_, point - point_)) < threshold;
+  inline bool distanceCheck(Eigen::Vector3f point, double threshold) {
+    return std::abs(normal_.dot(point - point_)) < threshold;
   }
-  inline bool normalCheck(pcl::Normal normal, double threshold) {
-    return acos(abs(dot(normal_, normal))) < threshold;
+  inline bool normalCheck(Eigen::Vector3f normal, double threshold) {
+    return acos(std::abs(normal_.dot(normal))) < threshold;
   }
 
-  pcl::PointXYZ point_;
-  pcl::Normal normal_;
+  Eigen::Vector3f point_;
+  Eigen::Vector3f normal_;
 };
 
 }  // namespace efficient_ransac
