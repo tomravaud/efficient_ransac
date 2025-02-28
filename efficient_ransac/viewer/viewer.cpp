@@ -5,9 +5,8 @@ namespace efficient_ransac {
 Viewer::Viewer() { visualizer_ = nullptr; }
 
 void Viewer::setup() {
-  if (visualizer_) {
-    return;
-  }
+  if (visualizer_) return;
+
   visualizer_ = std::make_shared<pcl::visualization::PCLVisualizer>("Viewer");
   visualizer_->setBackgroundColor(0, 0, 0);
   visualizer_->addCoordinateSystem(0.05);
@@ -53,9 +52,7 @@ void Viewer::showCloud(
 
 void Viewer::showCloud(const std::filesystem::path &filepath,
                        bool show_normals) {
-  if (!visualizer_) {
-    setup();
-  }
+  if (!visualizer_) setup();
 
   // load metadata of the point cloud
   auto metadata = std::make_shared<pcl::PCLPointCloud2>();
@@ -66,7 +63,7 @@ void Viewer::showCloud(const std::filesystem::path &filepath,
       pcl::getFieldIndex(*metadata, "normal_y") == -1 ||
       pcl::getFieldIndex(*metadata, "normal_z") == -1 ||
       pcl::getFieldIndex(*metadata, "curvature") == -1) {
-    std::cout << "Point cloud does not have normals and/or curvature"
+    std::cerr << "Point cloud does not have normals and/or curvature"
               << std::endl;
     return;
   }
