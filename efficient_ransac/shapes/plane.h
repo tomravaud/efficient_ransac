@@ -13,7 +13,8 @@ class Plane : public Shape {
 
   void computeInliersIndices(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-      const thresholds thresholds) override;
+      const thresholds thresholds,
+      const std::vector<bool> &remaining_points) override;
 
  private:
   inline bool distanceCheck(Eigen::Vector3f point, double threshold) {

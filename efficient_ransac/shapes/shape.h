@@ -19,10 +19,14 @@ class Shape {
 
   virtual void computeInliersIndices(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-      const thresholds thresholds) = 0;
-  std::vector<int> inliersIndices() { return inliers_indices_; }
-  protected:
-      std::vector<int> inliers_indices_;
+      const thresholds thresholds,
+      const std::vector<bool> &remaining_points) = 0;
+
+  // Getters
+  std::vector<int> inliers_indices() { return inliers_indices_; }
+
+ protected:
+  std::vector<int> inliers_indices_;
 };
 
 }  // namespace efficient_ransac

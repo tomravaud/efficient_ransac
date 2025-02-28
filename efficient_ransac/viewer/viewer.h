@@ -14,15 +14,19 @@ namespace efficient_ransac {
 class Viewer {
  public:
   Viewer();
-  void setup();
-  void showCloud(
-      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-      bool show_normals = false);
-  void showCloud(const std::filesystem::path &filename,
-                 bool show_normals = false);
+  void showCloud(const std::filesystem::path &filename);
 
  private:
+  enum class State { Default, Normals, Labels };
+
+  void setup();
+  void runViewer();
+  template <typename PointT>
+  void showCloud(const std::shared_ptr<pcl::PointCloud<PointT>> &cloud);
+
+  bool is_initialized_;
   std::shared_ptr<pcl::visualization::PCLVisualizer> visualizer_;
+  State state_;
 };
 
 }  // namespace efficient_ransac
