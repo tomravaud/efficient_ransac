@@ -4,7 +4,7 @@ namespace efficient_ransac {
 
 Detector::Detector() { srand(time(0)); }
 
-int Detector::detect(const std::filesystem::path &filepath) {
+int Detector::detect(const std::filesystem::path& filepath) {
   // load metadata of the point cloud
   auto metadata = std::make_shared<pcl::PCLPointCloud2>();
   if (pcl::io::loadPLYFile(filepath.string(), *metadata) == -1) return -1;
@@ -54,6 +54,9 @@ int Detector::detect(const std::filesystem::path &filepath) {
   int i = 0;
 
   while (i < 1000) {
+    std::cout << i << std::endl;
+    i++;
+
     // generate a given number of valid candidate shapes
     int num_valid_shapes = 0;
     while (num_valid_shapes < num_candidates) {
@@ -112,24 +115,22 @@ int Detector::detect(const std::filesystem::path &filepath) {
       // add the best shape to the extracted shapes
       extracted_shapes.push_back(std::move(candidate_shapes[best_shape_index]));
 
-      // temporary vector to store the remaining candidate shapes
-      std::vector<std::shared_ptr<Shape>> candidate_shapes_tmp;
-
-      for (auto candidate_shape : candidate_shapes) {
-        bool conflict = false;
-        for (int inlier : best_shape_inliers) {
-          if (std::find(candidate_shape->inliersIndices().begin(),
-                        candidate_shape->inliersIndices().end(),
-                        inlier) != candidate_shape->inliersIndices().end()) {
-            conflict = true;
-            break;
-          }
-        }
-        if (!conflict) {
-          candidate_shapes_tmp.push_back(candidate_shape);
-        }
-      }
-      candidate_shapes = std::move(candidate_shapes_tmp);
+      // remove shapes sharing inliers with the best shape
+      candidate_shapes.erase(
+          std::remove_if(
+              candidate_shapes.begin(), candidate_shapes.end(),
+              [&best_shape_inliers](
+                  const std::shared_ptr<Shape>& candidate_shape) {
+                if (!candidate_shape) return true;  // Protection contre nullptr
+                const auto& inliers = candidate_shape->inliersIndices();
+                return std::any_of(
+                    best_shape_inliers.begin(), best_shape_inliers.end(),
+                    [&inliers](int inlier) {
+                      return std::find(inliers.begin(), inliers.end(),
+                                       inlier) != inliers.end();
+                    });
+              }),
+          candidate_shapes.end());
     }
   }
   return 0;

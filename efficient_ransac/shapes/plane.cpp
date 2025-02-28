@@ -15,8 +15,8 @@ Plane::Plane(std::vector<pcl::PointNormal> candidate_points)
 bool Plane::isValid(std::vector<pcl::PointNormal> candidate_points,
                     thresholds thresholds) {
   for (size_t i = 0; i < candidate_points.size(); i++) {
-    if (acos(std::abs(normal_.dot(
-            candidate_points[i].getNormalVector3fMap()))) < thresholds.normal)
+    if (!normalCheck(candidate_points[i].getNormalVector3fMap(),
+                     thresholds.normal))
       return false;
   }
   return true;

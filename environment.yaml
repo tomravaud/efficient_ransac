@@ -1,4 +1,4 @@
-name: efficient_ransac2
+name: efficient_ransac
 channels:
    - conda-forge
    - defaults
