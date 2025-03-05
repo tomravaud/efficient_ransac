@@ -23,12 +23,12 @@ NB_MODULE(_efficient_ransac_mod, m) {
       .def(nb::init<>())
       // disambiguate overloaded methods
       .def("show_cloud",
-           static_cast<void (Viewer::*)(const std::filesystem::path&, bool)>(
+           static_cast<void (Viewer::*)(const std::filesystem::path&)>(
                &Viewer::showCloud),
-           "filepath"_a, "show_normals"_a = false);
+           "filepath"_a);
 
   // detector
   nb::class_<Detector>(m, "Detector")
       .def(nb::init<>())
-      .def("detect", &Detector::detect, "filepath"_a);
+      .def("detect", &Detector::detect, "input_path"_a, "output_path"_a);
 }

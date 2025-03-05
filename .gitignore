@@ -4,4 +4,9 @@ __pycache__/
 /.vscode/
 
 *.zip
-/data/*_preprocessed.ply
+
+/data/*
+!data/lille_street_small.ply
+
+/output/*
+!output/.gitkeep
