@@ -4,8 +4,91 @@ namespace efficient_ransac {
 
 Detector::Detector() { srand(time(0)); }
 
+void Detector::random_sampling(
+  std::set<int> &unique_indices,
+  int num_point_candidates,
+  const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+  const std::vector<bool> &remaining_points) {
+  while (unique_indices.size() < num_point_candidates) {
+    int random_index = rand() % cloud->size();
+    if (remaining_points[random_index])
+      unique_indices.insert(random_index);  // Only inserts unique values
+  }
+}
+
+bool Detector::localized_sampling(
+  std::set<int> &unique_indices,
+  int &random_depth,
+  int num_point_candidates,
+  const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+  const std::vector<bool> &remaining_points,
+  const std::vector<double> &probabilities,
+  const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
+  std::mt19937 &gen){
+  std::vector<int> remaining_indices;
+  for (int i = 0; i < cloud->size(); i++) {
+    if (remaining_points[i]) remaining_indices.push_back(i);
+  }
+  // Get first random index of a remaining point
+  int first_point_index = remaining_indices[rand() % remaining_indices.size()];
+  unique_indices.insert(first_point_index);
+
+  // Get the key of the voxel containing the first point at a random depth
+  std::discrete_distribution<> dist(probabilities.begin(), probabilities.end());
+  random_depth = dist(gen);
+  
+  // Get the point indices of the voxel
+  std::vector<int> point_indices_voxel;
+  pcl::PointNormal query_point = cloud->at(first_point_index);
+  // Calculate the voxel center containing the query point
+  double voxel_size = octree.getVoxelSquaredSideLen(random_depth);
+  double voxel_min_x = std::floor(query_point.x / voxel_size) * voxel_size;
+  double voxel_min_y = std::floor(query_point.y / voxel_size) * voxel_size;
+  double voxel_min_z = std::floor(query_point.z / voxel_size) * voxel_size;
+  
+  // Define the voxel boundaries
+  Eigen::Vector3f voxel_min(voxel_min_x, voxel_min_y, voxel_min_z);
+  Eigen::Vector3f voxel_max(voxel_min_x + voxel_size, voxel_min_y + voxel_size, voxel_min_z + voxel_size);
+
+  
+  // Find all points within this voxel using boxSearch
+  int num_points_in_voxel = octree.boxSearch(voxel_min, voxel_max, point_indices_voxel);  
+
+  if (num_points_in_voxel >= num_point_candidates) {
+    // Remove points that have already been used
+    point_indices_voxel.erase(
+      std::remove_if(point_indices_voxel.begin(), point_indices_voxel.end(),
+                    [&remaining_points](int idx) { return !remaining_points[idx]; }),
+      point_indices_voxel.end());
+    // Retrieve two random points from this voxel
+    if (point_indices_voxel.size() >= 3) {
+      while (unique_indices.size() < num_point_candidates) {
+        unique_indices.insert(point_indices_voxel[rand() % point_indices_voxel.size()]);
+      }
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+  else {return false;}
+}
+
+
 int Detector::detect(const std::filesystem::path& input_path,
                      const std::filesystem::path& output_path) {
+  //  params
+  const bool use_localized_sampling = true;
+  const float success_probability_threshold = 0.99f;
+  const int num_candidates = 100;
+  const int num_point_candidates = 3;
+  const int num_inliers_min = 50;
+  const int max_num_shapes = 3;
+  const thresholds thresholds = {
+      /* distance = */ 0.2,  // [m]
+      /* normal = */ 1.5     // [rad]
+  };
+
   // load metadata of the point cloud
   auto metadata = std::make_shared<pcl::PCLPointCloud2>();
   if (pcl::io::loadPLYFile(input_path.string(), *metadata) == -1) return -1;
@@ -30,18 +113,13 @@ int Detector::detect(const std::filesystem::path& input_path,
   octree.setInputCloud(cloud);
   octree.addPointsFromInputCloud();
   int max_depth = octree.getTreeDepth();
+  
+  // Vectors to update depth probability sampling
   std::vector<int> depth_scores(max_depth, 0);
-
-  //  params
-  const float success_probability_threshold = 0.99f;
-  const int num_candidates = 100;
-  const int num_point_candidates = 3;
-  const int num_inliers_min = 50;
-  const thresholds thresholds = {
-      /* distance = */ 0.2,  // [m]
-      /* normal = */ 1.5     // [rad]
-  };
-  const int max_num_shapes = 3;
+  std::vector<double> probabilities(max_depth, 1./max_depth);
+  float uniform_rate = 0.1;
+  std::random_device rd;
+  std::mt19937 gen(rd());
 
   // TODO: load the config file
   //  std::string config_path = "configs/config.yaml";
@@ -65,64 +143,14 @@ int Detector::detect(const std::filesystem::path& input_path,
     // generate a given number of valid candidate shapes
     int num_valid_shapes = 0;
     while (num_valid_shapes < num_candidates) {
-      //--------------Random Sampling-----------------------------------------------------------
-      //sample a minimal set of points to define a candidate shape
-      // std::set<int> unique_indices;
-      // while (unique_indices.size() < num_point_candidates) {
-      //   int random_index = rand() % cloud->size();
-      //   if (remaining_points[random_index])
-      //     unique_indices.insert(random_index);  // Only inserts unique values
-      // }
-      //------------------------------------------------------------------------------------------
-
-      //--------------Localized Sampling---------------------------------------------------------
-      std::vector<int> remaining_indices;
-      for (int i = 0; i < cloud->size(); i++) {
-        if (remaining_points[i]) remaining_indices.push_back(i);
-      }
-      // Get first random index of a remaining point
+      // sample a set of points
       std::set<int> unique_indices;
-      int first_point_index = remaining_indices[rand() % remaining_indices.size()];
-      unique_indices.insert(first_point_index);
-
-      // Get the key of the voxel containing the first point at a random depth
-      // TODO: Change the prob of sampling depth
-      int random_depth = rand() % max_depth;
-      
-      // Get the point indices of the voxel
-      std::vector<int> point_indices_voxel;
-      pcl::PointNormal query_point = cloud->at(first_point_index);
-      // Calculate the voxel center containing the query point
-      double voxel_size = octree.getVoxelSquaredSideLen(random_depth);
-      double voxel_min_x = std::floor(query_point.x / voxel_size) * voxel_size;
-      double voxel_min_y = std::floor(query_point.y / voxel_size) * voxel_size;
-      double voxel_min_z = std::floor(query_point.z / voxel_size) * voxel_size;
-      
-      // Define the voxel boundaries
-      Eigen::Vector3f voxel_min(voxel_min_x, voxel_min_y, voxel_min_z);
-      Eigen::Vector3f voxel_max(voxel_min_x + voxel_size, voxel_min_y + voxel_size, voxel_min_z + voxel_size);
- 
-      
-      // Find all points within this voxel using boxSearch
-      int num_points_in_voxel = octree.boxSearch(voxel_min, voxel_max, point_indices_voxel);  
-    
-      if (num_points_in_voxel >= num_point_candidates) {
-        // Remove points that have already been used
-        point_indices_voxel.erase(
-          std::remove_if(point_indices_voxel.begin(), point_indices_voxel.end(),
-                        [&remaining_points](int idx) { return !remaining_points[idx]; }),
-          point_indices_voxel.end());
-        // Retrieve two random points from this voxel
-        if (point_indices_voxel.size() >= 2) {
-          while (unique_indices.size() < num_point_candidates) {
-            unique_indices.insert(point_indices_voxel[rand() % point_indices_voxel.size()]);
-          }
-        }
-        else {
-          std::cout << "Not enough points in the voxel\n";
-        }
+      int random_depth;
+      if (use_localized_sampling && !localized_sampling(unique_indices, random_depth, num_point_candidates, cloud, remaining_points, probabilities, octree, gen)) {
+        continue;
+      } else {
+        random_sampling(unique_indices, num_point_candidates, cloud, remaining_points);
       }
-      //------------------------------------------------------------------------------------------
 
       std::vector<pcl::PointNormal> candidate_points;
       for (int index : unique_indices) {
@@ -134,7 +162,22 @@ int Detector::detect(const std::filesystem::path& input_path,
       // check if the candidate shape is valid
       if (candidate_shape->isValid(candidate_points, thresholds)) {
         num_valid_shapes++;
+        candidate_shape->computeInliersIndices(cloud, thresholds,
+          remaining_points);
+        if (use_localized_sampling) depth_scores[random_depth]+=candidate_shape->inliers_indices().size();
         candidate_shapes.push_back(std::move(candidate_shape));
+      }
+    }
+
+    if (use_localized_sampling) {
+      // Create a normalizing factor for the depth probabilities
+      float weight=0;
+      for (int i = 0; i < max_depth; i++) {
+        weight+=depth_scores[i]/probabilities[i];
+      }
+      // Update the probabilities
+      for (int i = 0; i < max_depth; i++) {
+        probabilities[i] = uniform_rate*depth_scores[i]/probabilities[i]/weight + (1-uniform_rate)/max_depth;
       }
     }
 
@@ -144,14 +187,11 @@ int Detector::detect(const std::filesystem::path& input_path,
     std::vector<int> best_shape_inliers;
 
     for (int i = 0; i < num_candidates; i++) {
-      candidate_shapes[i]->computeInliersIndices(cloud, thresholds,
-                                                 remaining_points);
       auto inliers = candidate_shapes[i]->inliers_indices();
       // check if the candidate shape is the best
       if (inliers.size() > best_shape_inliers.size()) {
         best_shape_index = i;
         best_shape_inliers = inliers;
-        // TODO: add inliers.size() to the depth of the voxel
       }
     }
 
