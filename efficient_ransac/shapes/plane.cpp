@@ -25,13 +25,18 @@ bool Plane::isValid(std::vector<pcl::PointNormal> candidate_points,
 void Plane::computeInliersIndices(
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
     const thresholds thresholds, const std::vector<bool> &remaining_points) {
-  // if (!(inliers_indices_.empty())) return;
+  // inliers must satisfy both distance and normal thresholds
   for (size_t i = 0; i < cloud->size(); i++) {
     if (!remaining_points[i]) continue;
     if (distanceCheck(cloud->at(i).getVector3fMap(), thresholds.distance) &&
-        normalCheck(cloud->at(i).getNormalVector3fMap(), thresholds.normal))
+        normalCheck(cloud->at(i).getNormalVector3fMap(), thresholds.normal)) {
       inliers_indices_.push_back(i);
+    }
   }
+
+  // extract the largest connected component
+  float beta = thresholds.distance;  // bitmap cell size
+  extractLargestConnectedComponent(cloud, beta);
 }
 
 }  // namespace efficient_ransac
