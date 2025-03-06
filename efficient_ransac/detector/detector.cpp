@@ -24,6 +24,14 @@ int Detector::detect(const std::filesystem::path& input_path,
   if (pcl::io::loadPLYFile<pcl::PointNormal>(input_path.string(), *cloud) == -1)
     return -1;
 
+  // build an octree of the cloud
+  const float resolution = 0.1f;
+  pcl::octree::OctreePointCloudSearch<pcl::PointNormal> octree(resolution);
+  octree.setInputCloud(cloud);
+  octree.addPointsFromInputCloud();
+  int max_depth = octree.getTreeDepth();
+  std::vector<int> depth_scores(max_depth, 0);
+
   //  params
   const float success_probability_threshold = 0.99f;
   const int num_candidates = 100;
@@ -57,13 +65,65 @@ int Detector::detect(const std::filesystem::path& input_path,
     // generate a given number of valid candidate shapes
     int num_valid_shapes = 0;
     while (num_valid_shapes < num_candidates) {
-      // sample a minimal set of points to define a candidate shape
-      std::set<int> unique_indices;
-      while (unique_indices.size() < num_point_candidates) {
-        int random_index = rand() % cloud->size();
-        if (remaining_points[random_index])
-          unique_indices.insert(random_index);  // Only inserts unique values
+      //--------------Random Sampling-----------------------------------------------------------
+      //sample a minimal set of points to define a candidate shape
+      // std::set<int> unique_indices;
+      // while (unique_indices.size() < num_point_candidates) {
+      //   int random_index = rand() % cloud->size();
+      //   if (remaining_points[random_index])
+      //     unique_indices.insert(random_index);  // Only inserts unique values
+      // }
+      //------------------------------------------------------------------------------------------
+
+      //--------------Localized Sampling---------------------------------------------------------
+      std::vector<int> remaining_indices;
+      for (int i = 0; i < cloud->size(); i++) {
+        if (remaining_points[i]) remaining_indices.push_back(i);
       }
+      // Get first random index of a remaining point
+      std::set<int> unique_indices;
+      int first_point_index = remaining_indices[rand() % remaining_indices.size()];
+      unique_indices.insert(first_point_index);
+
+      // Get the key of the voxel containing the first point at a random depth
+      // TODO: Change the prob of sampling depth
+      int random_depth = rand() % max_depth;
+      
+      // Get the point indices of the voxel
+      std::vector<int> point_indices_voxel;
+      pcl::PointNormal query_point = cloud->at(first_point_index);
+      // Calculate the voxel center containing the query point
+      double voxel_size = octree.getVoxelSquaredSideLen(random_depth);
+      double voxel_min_x = std::floor(query_point.x / voxel_size) * voxel_size;
+      double voxel_min_y = std::floor(query_point.y / voxel_size) * voxel_size;
+      double voxel_min_z = std::floor(query_point.z / voxel_size) * voxel_size;
+      
+      // Define the voxel boundaries
+      Eigen::Vector3f voxel_min(voxel_min_x, voxel_min_y, voxel_min_z);
+      Eigen::Vector3f voxel_max(voxel_min_x + voxel_size, voxel_min_y + voxel_size, voxel_min_z + voxel_size);
+ 
+      
+      // Find all points within this voxel using boxSearch
+      int num_points_in_voxel = octree.boxSearch(voxel_min, voxel_max, point_indices_voxel);  
+    
+      if (num_points_in_voxel >= num_point_candidates) {
+        // Remove points that have already been used
+        point_indices_voxel.erase(
+          std::remove_if(point_indices_voxel.begin(), point_indices_voxel.end(),
+                        [&remaining_points](int idx) { return !remaining_points[idx]; }),
+          point_indices_voxel.end());
+        // Retrieve two random points from this voxel
+        if (point_indices_voxel.size() >= 2) {
+          while (unique_indices.size() < num_point_candidates) {
+            unique_indices.insert(point_indices_voxel[rand() % point_indices_voxel.size()]);
+          }
+        }
+        else {
+          std::cout << "Not enough points in the voxel\n";
+        }
+      }
+      //------------------------------------------------------------------------------------------
+
       std::vector<pcl::PointNormal> candidate_points;
       for (int index : unique_indices) {
         candidate_points.push_back(cloud->at(index));
@@ -91,6 +151,7 @@ int Detector::detect(const std::filesystem::path& input_path,
       if (inliers.size() > best_shape_inliers.size()) {
         best_shape_index = i;
         best_shape_inliers = inliers;
+        // TODO: add inliers.size() to the depth of the voxel
       }
     }
 
