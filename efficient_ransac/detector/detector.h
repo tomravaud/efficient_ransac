@@ -1,5 +1,6 @@
 #pragma once
 
+// C++ standard libraries
 #include <cstdlib>  // for rand() and srand()
 #include <ctime>
 #include <filesystem>
@@ -9,6 +10,10 @@
 #include <pcl/io/ply_io.h>
 #include <pcl/octree/octree_search.h>
 
+// yaml-cpp
+// #include <yaml-cpp/yaml.h>
+
+// efficient_ransac
 #include "../shapes/plane.h"
 #include "../shapes/shape.h"
 

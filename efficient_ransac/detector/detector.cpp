@@ -35,6 +35,10 @@ int Detector::detect(const std::filesystem::path& input_path,
   };
   const int max_num_shapes = 3;
 
+  // TODO: load the config file
+  //  std::string config_path = "configs/config.yaml";
+  //  YAML::Node config = YAML::LoadFile(config_path);
+
   std::vector<std::shared_ptr<Shape>> candidate_shapes;
   std::vector<std::shared_ptr<Shape>> extracted_shapes;
 

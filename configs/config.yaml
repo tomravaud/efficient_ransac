@@ -1,0 +1,9 @@
+success_probability_threshold: 0.99
+num_candidates: 100
+num_point_candidates: 3
+num_inliers_min: 50
+max_num_shapes: 3
+
+thresholds:
+  distance: 0.2
+  normal: 1.5

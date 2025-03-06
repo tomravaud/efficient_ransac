@@ -30,6 +30,7 @@ nanobind_add_module(
   efficient_ransac/viewer/viewer.cpp
   efficient_ransac/detector/detector.cpp
   efficient_ransac/shapes/plane.cpp
+  efficient_ransac/shapes/bitmap.cpp
 )
 
 # pcl
