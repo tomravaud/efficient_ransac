@@ -8,6 +8,7 @@ dependencies:
   - boost
   - eigen
   - pcl=1.14.1
+  - yaml-cpp=0.8.0
   - nanobind
   - pip
   - pip:

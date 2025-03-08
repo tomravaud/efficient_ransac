@@ -11,7 +11,8 @@ from efficient_ransac.utils.ply import read_ply, write_ply
 
 if "__main__" == __name__:
     data_path = Path("data/")
-    filename = "lille_street_small"
+    filename = "synthetic_cloud"
+    # filename = "lille_street_small"
 
     # load the point cloud
     cloud_path = data_path / f"{filename}.ply"
@@ -27,16 +28,20 @@ if "__main__" == __name__:
     normals, curvature = compute_normals_and_curvature(cloud, cloud, radius=0.1)
 
     # decimate the point cloud
-    print("Decimating the point cloud...")
-    step = 100
-    cloud = cloud[::step]
-    normals = normals[::step]
-    curvature = curvature[::step]
+    # print("Decimating the point cloud...")
+    # step = 100
+    # cloud = cloud[::step]
+    # normals = normals[::step]
+    # curvature = curvature[::step]
 
     # save the modified point cloud
     write_ply(
         (data_path / f"{filename}_preprocessed.ply").as_posix(),
-        (cloud, normals.astype(np.float32), curvature.astype(np.float32)),
+        (
+            cloud.astype(np.float32),
+            normals.astype(np.float32),
+            curvature.astype(np.float32),
+        ),
         ["x", "y", "z", "normal_x", "normal_y", "normal_z", "curvature"],
     )
     print(f"Preprocessed point cloud saved to {data_path / filename}_preprocessed.ply")

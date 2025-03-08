@@ -13,30 +13,51 @@ Plane::Plane(std::vector<pcl::PointNormal> candidate_points)
 }
 
 bool Plane::isValid(std::vector<pcl::PointNormal> candidate_points,
-                    thresholds thresholds) {
-  for (size_t i = 0; i < candidate_points.size(); i++) {
-    if (!normalCheck(candidate_points[i].getNormalVector3fMap(),
-                     thresholds.normal))
-      return false;
+                    Thresholds thresholds) {
+  for (auto point : candidate_points) {
+    if (!normalCheck(point, thresholds.normal)) return false;
   }
   return true;
 }
 
+void Plane::extractLargestConnectedComponent(
+    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+    const CellSize &cell_size) {
+  // local coordinate system in the plane
+  Eigen::Vector3f u, v;
+  u = normal_.unitOrthogonal();
+  v = normal_.cross(u);
+
+  // fill the bitmap (only active cells are stored)
+  std::unordered_map<CellCoord, std::vector<int>, CellCoordHasher> bitmap;
+  for (int idx : inliers_indices_) {
+    Eigen::Vector3f local_coords = cloud->at(idx).getVector3fMap() - point_;
+    int cx = static_cast<int>(std::floor(local_coords.dot(u) / cell_size.x));
+    int cy = static_cast<int>(std::floor(local_coords.dot(v) / cell_size.y));
+    CellCoord key = {cx, cy};
+    bitmap[key].push_back(idx);
+  }
+
+  // find the largest connected component
+  inliers_indices_ = extractLargestConnectedComponentFromBitmap(bitmap);
+}
+
 void Plane::computeInliersIndices(
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const thresholds thresholds, const std::vector<bool> &remaining_points) {
+    const Thresholds thresholds, const std::vector<bool> &remaining_points) {
   // inliers must satisfy both distance and normal thresholds
   for (size_t i = 0; i < cloud->size(); i++) {
     if (!remaining_points[i]) continue;
-    if (distanceCheck(cloud->at(i).getVector3fMap(), thresholds.distance) &&
-        normalCheck(cloud->at(i).getNormalVector3fMap(), thresholds.normal)) {
+    pcl::PointNormal point = cloud->at(i);
+    if (distanceCheck(point, thresholds.distance) &&
+        normalCheck(point, thresholds.normal)) {
       inliers_indices_.push_back(i);
     }
   }
 
   // extract the largest connected component
-  float beta = thresholds.distance;  // bitmap cell size
-  extractLargestConnectedComponent(cloud, beta);
+  CellSize cell_size = {thresholds.distance, thresholds.distance};
+  extractLargestConnectedComponent(cloud, cell_size);
 }
 
 }  // namespace efficient_ransac

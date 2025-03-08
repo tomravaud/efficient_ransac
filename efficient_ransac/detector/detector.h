@@ -4,43 +4,74 @@
 #include <cstdlib>  // for rand() and srand()
 #include <ctime>
 #include <filesystem>
-#include <set>
 #include <random>
+#include <set>
 
 // pcl
 #include <pcl/io/ply_io.h>
 #include <pcl/octree/octree_search.h>
 
 // yaml-cpp
-// #include <yaml-cpp/yaml.h>
+#include <yaml-cpp/yaml.h>
 
 // efficient_ransac
+#include "../shapes/cylinder.h"
 #include "../shapes/plane.h"
 #include "../shapes/shape.h"
+#include "../shapes/sphere.h"
+#include "../utils/timer.h"
 
 namespace efficient_ransac {
 
-class Detector {
- public:
-  Detector();
-  int detect(const std::filesystem::path &input_path,
-             const std::filesystem::path &output_path);
- private:
-  void random_sampling(
-    std::set<int> &unique_indices,
-    int num_point_candidates,
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const std::vector<bool> &remaining_points);
-  bool localized_sampling(
-    std::set<int> &unique_indices,
-    int &random_depth,
-    int num_point_candidates,
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const std::vector<bool> &remaining_points,
-    const std::vector<double> &probabilities,
-    const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
-    std::mt19937 &gen);
+struct DetectorParams {
+  float success_probability_threshold;
+  int num_candidates;
+  int num_point_candidates;
+  int num_inliers_min;
+  int max_num_shapes;
+  bool use_localized_sampling;
+  Thresholds thresholds;
+
+  static DetectorParams fromYAML(const std::filesystem::path &config_path) {
+    YAML::Node config = YAML::LoadFile(config_path.string());
+    DetectorParams params;
+    params.success_probability_threshold =
+        config["success_probability_threshold"].as<float>(0.99f);
+    params.num_candidates = config["num_candidates"].as<int>(100);
+    params.num_point_candidates = config["num_point_candidates"].as<int>(3);
+    params.num_inliers_min = config["num_inliers_min"].as<int>(50);
+    params.max_num_shapes = config["max_num_shapes"].as<int>(3);
+    params.use_localized_sampling =
+        config["use_localized_sampling"].as<bool>(true);
+    params.thresholds.distance =
+        config["thresholds"]["distance"].as<float>(0.1f);
+    params.thresholds.normal = config["thresholds"]["normal"].as<float>(0.2f);
+    return params;
+  }
 };
 
+class Detector {
+ public:
+  Detector(const std::filesystem::path &config_path);
+  int detect(const std::filesystem::path &input_path,
+             const std::filesystem::path &output_path);
+
+ private:
+  void random_sampling(
+      std::set<int> &unique_indices, int num_point_candidates,
+      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+      const std::vector<bool> &remaining_points);
+  bool localized_sampling(
+      std::set<int> &unique_indices, int &random_depth,
+      int num_point_candidates,
+      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+      const std::vector<bool> &remaining_points,
+      const std::vector<double> &probabilities,
+      const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
+      std::mt19937 &gen);
+
+ private:
+  DetectorParams params_;
+};
 
 }  // namespace efficient_ransac
