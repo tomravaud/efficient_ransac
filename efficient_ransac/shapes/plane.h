@@ -7,48 +7,31 @@
 
 namespace efficient_ransac {
 
-class Plane : public Shape {
+class Plane final : public Shape {
  public:
   Plane(std::vector<pcl::PointNormal> candidate_points);
 
   bool isValid(std::vector<pcl::PointNormal> candidate_points,
-               thresholds thresholds) override;
+               Thresholds thresholds) override;
 
   void computeInliersIndices(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-      const thresholds thresholds,
+      const Thresholds thresholds,
       const std::vector<bool> &remaining_points) override;
 
+ private:
+  inline bool distanceCheck(pcl::PointNormal point, double threshold) override {
+    return std::abs(normal_.dot(point.getVector3fMap() - point_)) < threshold;
+  }
+  inline bool normalCheck(pcl::PointNormal point, double threshold) override {
+    return acos(std::abs(normal_.dot(
+               point.getNormalVector3fMap().normalized()))) < threshold;
+  }
   void extractLargestConnectedComponent(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-      float beta) {
-    // local coordinate system in the plane
-    Eigen::Vector3f u, v;
-    u = normal_.unitOrthogonal();
-    v = normal_.cross(u);
+      const CellSize &cell_size) override;
 
-    // fill the bitmap (only active cells are stored)
-    std::unordered_map<CellCoord, std::vector<int>, CellCoordHasher> bitmap;
-    for (int idx : inliers_indices_) {
-      Eigen::Vector3f local_coords = cloud->at(idx).getVector3fMap() - point_;
-      int cx = static_cast<int>(std::floor(local_coords.dot(u) / beta));
-      int cy = static_cast<int>(std::floor(local_coords.dot(v) / beta));
-      CellCoord key = {cx, cy};
-      bitmap[key].push_back(idx);
-    }
-
-    // find the largest connected component
-    inliers_indices_ = extractLargestConnectedComponentFromBitmap(bitmap);
-  }
-
- private:
-  inline bool distanceCheck(Eigen::Vector3f point, double threshold) {
-    return std::abs(normal_.dot(point - point_)) < threshold;
-  }
-  inline bool normalCheck(Eigen::Vector3f normal, double threshold) {
-    return acos(std::abs(normal_.dot(normal))) < threshold;
-  }
-
+  // plane parameters
   Eigen::Vector3f point_;
   Eigen::Vector3f normal_;
 };

@@ -16,6 +16,14 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
+# pcl
+find_package(PCL 1.4 REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+# yaml-cpp
+find_package(yaml-cpp REQUIRED)
+
 # detect the installed nanobind package and import it into CMake
 execute_process(
   COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
@@ -29,15 +37,13 @@ nanobind_add_module(
   efficient_ransac/bindings.cpp
   efficient_ransac/viewer/viewer.cpp
   efficient_ransac/detector/detector.cpp
+  efficient_ransac/shapes/shape.cpp
   efficient_ransac/shapes/plane.cpp
+  efficient_ransac/shapes/cylinder.cpp
+  efficient_ransac/shapes/sphere.cpp
   efficient_ransac/shapes/bitmap.cpp
 )
 
-# pcl
-find_package(PCL 1.4 REQUIRED)
-include_directories(${PCL_INCLUDE_DIRS})
-link_directories(${PCL_LIBRARY_DIRS})
-add_definitions(${PCL_DEFINITIONS})
-target_link_libraries(_efficient_ransac_mod PRIVATE ${PCL_LIBRARIES})
+target_link_libraries(_efficient_ransac_mod PRIVATE ${PCL_LIBRARIES} yaml-cpp)
 
 install(TARGETS _efficient_ransac_mod DESTINATION efficient_ransac)

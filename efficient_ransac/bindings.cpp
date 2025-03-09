@@ -29,6 +29,6 @@ NB_MODULE(_efficient_ransac_mod, m) {
 
   // detector
   nb::class_<Detector>(m, "Detector")
-      .def(nb::init<>())
+      .def(nb::init<const std::filesystem::path&>(), "config_path"_a)
       .def("detect", &Detector::detect, "input_path"_a, "output_path"_a);
 }
