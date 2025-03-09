@@ -16,4 +16,5 @@ dependencies:
     - pre-commit
     - numpy
     - scikit-learn
+    - click
     - -e .

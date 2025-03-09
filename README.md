@@ -23,7 +23,7 @@ You can use the sample cloud provided in the `data` folder or use your own point
 We also provide a script to generate a synthetic point cloud composed of random planes, cylinders, and spheres (point coordinates only, normals are to be computed).
 
 ```bash
-python examples/generate_synthetic_cloud.py
+python examples/generate_synthetic_cloud.py "data/synthetic_cloud.ply"
 ```
 
 
@@ -32,15 +32,16 @@ python examples/generate_synthetic_cloud.py
 Our implementation assumes that the input point cloud is centered and that the normals are available. If not, you can use the following script to preprocess the point cloud.
 
 ```bash
-python examples/preprocess_cloud.py
+python examples/preprocess_cloud.py "data/synthetic_cloud.ply"
 ```
 
 Note that the parameters of the preprocessing may need to be adjusted depending on the input point cloud.
 
+
 ### Detection
 
 ```bash
-python examples/run_detection.py
+python examples/run_detection.py "data/synthetic_cloud_preprocessed.ply"
 ```
 
 ![image_detection](assets/image_detection.jpeg)
