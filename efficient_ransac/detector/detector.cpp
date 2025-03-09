@@ -4,7 +4,7 @@ namespace efficient_ransac {
 
 Detector::Detector() { srand(time(0)); }
 
-void Detector::random_sampling(
+void Detector::randomSampling(
   std::set<int> &unique_indices,
   int num_point_candidates,
   const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
@@ -16,7 +16,7 @@ void Detector::random_sampling(
   }
 }
 
-bool Detector::localized_sampling(
+bool Detector::localizedSampling(
   std::set<int> &unique_indices,
   int &random_depth,
   int num_point_candidates,
@@ -36,6 +36,7 @@ bool Detector::localized_sampling(
   // Get the key of the voxel containing the first point at a random depth
   std::discrete_distribution<> dist(probabilities.begin(), probabilities.end());
   random_depth = dist(gen);
+
   
   // Get the point indices of the voxel
   std::vector<int> point_indices_voxel;
@@ -133,6 +134,7 @@ int Detector::detect(const std::filesystem::path& input_path,
 
   // main loop
   std::clog << "[INFO] Detecting shapes...\n";
+  clock_t start = clock();
   while (1 - pow(1 - pow((float)num_inliers_min /
                              std::count(remaining_points.begin(),
                                         remaining_points.end(), true),
@@ -146,11 +148,12 @@ int Detector::detect(const std::filesystem::path& input_path,
       // sample a set of points
       std::set<int> unique_indices;
       int random_depth;
-      if (use_localized_sampling && !localized_sampling(unique_indices, random_depth, num_point_candidates, cloud, remaining_points, probabilities, octree, gen)) {
+      if (use_localized_sampling && !localizedSampling(unique_indices, random_depth, num_point_candidates, cloud, remaining_points, probabilities, octree, gen)) {
         continue;
       } else {
-        random_sampling(unique_indices, num_point_candidates, cloud, remaining_points);
+        randomSampling(unique_indices, num_point_candidates, cloud, remaining_points);
       }
+
 
       std::vector<pcl::PointNormal> candidate_points;
       for (int index : unique_indices) {
@@ -168,7 +171,6 @@ int Detector::detect(const std::filesystem::path& input_path,
         candidate_shapes.push_back(std::move(candidate_shape));
       }
     }
-
     if (use_localized_sampling) {
       // Create a normalizing factor for the depth probabilities
       float weight=0;
@@ -180,6 +182,7 @@ int Detector::detect(const std::filesystem::path& input_path,
         probabilities[i] = uniform_rate*depth_scores[i]/probabilities[i]/weight + (1-uniform_rate)/max_depth;
       }
     }
+
 
     // find inliers for each candidate shape and keep the best one
     int best_shape_index = -1;
@@ -199,10 +202,27 @@ int Detector::detect(const std::filesystem::path& input_path,
         std::count(remaining_points.begin(), remaining_points.end(), true);
 
     // test if the best shape is good enough to be kept
-    if (1 - pow(1 - pow((float)best_shape_inliers.size() / cloud_size,
-                        num_point_candidates),
-                candidate_shapes.size()) >
-        success_probability_threshold) {
+    bool accept;
+    if (use_localized_sampling){
+      accept=localizedAcceptance(
+        best_shape_inliers.size(),
+        cloud->size(),
+        num_point_candidates,
+        candidate_shapes.size(),
+        max_depth,
+        success_probability_threshold
+      );
+    }
+    else{
+      accept=randomAcceptance(
+        best_shape_inliers.size(),
+        cloud->size(),
+        num_point_candidates,
+        candidate_shapes.size(),
+        success_probability_threshold
+      );
+    }
+    if (accept) {
       // update the point cloud
       for (auto index : best_shape_inliers) remaining_points[index] = false;
 
@@ -228,6 +248,7 @@ int Detector::detect(const std::filesystem::path& input_path,
     }
   }
   std::clog << "[INFO] Detected " << extracted_shapes.size() << " shapes\n";
+  std::cout << "Time: " << (double)(clock() - start) / CLOCKS_PER_SEC << std::endl;
 
   // label the point cloud
   auto cloud_labels = std::make_shared<pcl::PointCloud<pcl::PointXYZLNormal>>();
