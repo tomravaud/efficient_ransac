@@ -9,30 +9,28 @@ namespace efficient_ransac {
 
 class Sphere final : public Shape {
  public:
-  Sphere(std::vector<pcl::PointNormal> candidate_points);
+  Sphere(std::vector<pcl::PointNormal> candidate_points, Thresholds thresholds,
+         CellSize cell_size);
 
-  bool isValid(std::vector<pcl::PointNormal> candidate_points,
-               Thresholds thresholds) override;
+  bool isValid(std::vector<pcl::PointNormal> candidate_points) override;
 
   void computeInliersIndices(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-      const Thresholds thresholds,
       const std::vector<bool> &remaining_points) override;
 
  private:
-  inline bool distanceCheck(pcl::PointNormal point, double threshold) override {
+  inline bool distanceCheck(pcl::PointNormal point) override {
     return std::abs((point.getVector3fMap() - center_).norm() - radius_) <
-           threshold;
+           thresholds_.distance;
   }
-  inline bool normalCheck(pcl::PointNormal point, double threshold) override {
+  inline bool normalCheck(pcl::PointNormal point) override {
     Eigen::Vector3f normal_sphere =
         (point.getVector3fMap() - center_).normalized();
     Eigen::Vector3f normal_point = point.getNormalVector3fMap().normalized();
-    return acos(std::abs(normal_sphere.dot(normal_point))) < threshold;
+    return acos(std::abs(normal_sphere.dot(normal_point))) < thresholds_.normal;
   }
   void extractLargestConnectedComponent(
-      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-      const CellSize &cell_size) override;
+      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud) override;
 
   /**
    * @brief Project a point from the unit hemisphere to the unit disk.CellCoord

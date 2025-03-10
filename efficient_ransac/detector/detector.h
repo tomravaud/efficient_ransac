@@ -31,6 +31,7 @@ struct DetectorParams {
   int max_num_shapes;
   bool use_localized_sampling;
   Thresholds thresholds;
+  CellSize bitmap_cell_size;
 
   static DetectorParams fromYAML(const std::filesystem::path &config_path) {
     YAML::Node config = YAML::LoadFile(config_path.string());
@@ -46,6 +47,8 @@ struct DetectorParams {
     params.thresholds.distance =
         config["thresholds"]["distance"].as<float>(0.1f);
     params.thresholds.normal = config["thresholds"]["normal"].as<float>(0.2f);
+    params.bitmap_cell_size.x = config["bitmap_cell_size"].as<float>(0.1f);
+    params.bitmap_cell_size.y = config["bitmap_cell_size"].as<float>(0.1f);
     return params;
   }
 };
@@ -58,46 +61,44 @@ class Detector {
 
  private:
   void randomSampling(
-    std::set<int> &unique_indices,
-    int num_point_candidates,
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const std::vector<bool> &remaining_points);
+      std::set<int> &unique_indices, int num_point_candidates,
+      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+      const std::vector<bool> &remaining_points);
   bool localizedSampling(
-    std::set<int> &unique_indices,
-    int &random_depth,
-    int num_point_candidates,
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const std::vector<bool> &remaining_points,
-    const std::vector<double> &probabilities,
-    const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
-    std::mt19937 &gen);
-  inline bool randomAcceptance(
-    int num_inliers, 
-    int cloud_size, 
-    int num_point_candidates, 
-    int num_shape_candidates, 
-    float success_probability_threshold){
-        std::cout<<1 - pow(1 - pow((float)num_inliers / cloud_size,
-        num_point_candidates),
-num_shape_candidates)<<std::endl;
-        return 1 - pow(1 - pow((float)num_inliers / cloud_size,
-                        num_point_candidates),
-                num_shape_candidates) >
-        success_probability_threshold;
-    }
-  inline bool localizedAcceptance(
-    int num_inliers, 
-    int cloud_size, 
-    int num_point_candidates, 
-    int num_shape_candidates, 
-    int max_depth,
-    float success_probability_threshold){
-        std::cout<<1 - pow(1 - (float)num_inliers / (cloud_size*max_depth*pow(2,num_point_candidates-1)),
-        num_shape_candidates)<<std::endl;
-        return 1 - pow(1 - (float)num_inliers / (cloud_size*max_depth*pow(2,num_point_candidates-1)),
-                num_shape_candidates) >
-        success_probability_threshold;
-    }
+      std::set<int> &unique_indices, int &random_depth,
+      int num_point_candidates,
+      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+      const std::vector<bool> &remaining_points,
+      const std::vector<double> &probabilities,
+      const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
+      std::mt19937 &gen);
+  inline bool randomAcceptance(int num_inliers, int cloud_size,
+                               int num_point_candidates,
+                               int num_shape_candidates,
+                               float success_probability_threshold) {
+    std::cout << 1 - pow(1 - pow((float)num_inliers / cloud_size,
+                                 num_point_candidates),
+                         num_shape_candidates)
+              << std::endl;
+    return 1 - pow(1 - pow((float)num_inliers / cloud_size,
+                           num_point_candidates),
+                   num_shape_candidates) >
+           success_probability_threshold;
+  }
+  inline bool localizedAcceptance(int num_inliers, int cloud_size,
+                                  int num_point_candidates,
+                                  int num_shape_candidates, int max_depth,
+                                  float success_probability_threshold) {
+    std::cout << 1 - pow(1 - (float)num_inliers /
+                                 (cloud_size * max_depth *
+                                  pow(2, num_point_candidates - 1)),
+                         num_shape_candidates)
+              << std::endl;
+    return 1 - pow(1 - (float)num_inliers / (cloud_size * max_depth *
+                                             pow(2, num_point_candidates - 1)),
+                   num_shape_candidates) >
+           success_probability_threshold;
+  }
 
   DetectorParams params_;
 };

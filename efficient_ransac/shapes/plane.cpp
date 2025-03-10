@@ -2,8 +2,9 @@
 
 namespace efficient_ransac {
 
-Plane::Plane(std::vector<pcl::PointNormal> candidate_points)
-    : Shape(candidate_points) {
+Plane::Plane(std::vector<pcl::PointNormal> candidate_points,
+             Thresholds thresholds, CellSize cell_size)
+    : Shape(candidate_points, thresholds, cell_size) {
   // compute the plane parameters
   point_ = candidate_points[0].getVector3fMap();
   Eigen::Vector3f p0p1 = candidate_points[1].getVector3fMap() - point_;
@@ -12,17 +13,15 @@ Plane::Plane(std::vector<pcl::PointNormal> candidate_points)
   normal_.normalize();
 }
 
-bool Plane::isValid(std::vector<pcl::PointNormal> candidate_points,
-                    Thresholds thresholds) {
+bool Plane::isValid(std::vector<pcl::PointNormal> candidate_points) {
   for (auto point : candidate_points) {
-    if (!normalCheck(point, thresholds.normal)) return false;
+    if (!normalCheck(point)) return false;
   }
   return true;
 }
 
 void Plane::extractLargestConnectedComponent(
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const CellSize &cell_size) {
+    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud) {
   // local coordinate system in the plane
   Eigen::Vector3f u, v;
   u = normal_.unitOrthogonal();
@@ -32,8 +31,8 @@ void Plane::extractLargestConnectedComponent(
   std::unordered_map<CellCoord, std::vector<int>, CellCoordHasher> bitmap;
   for (int idx : inliers_indices_) {
     Eigen::Vector3f local_coords = cloud->at(idx).getVector3fMap() - point_;
-    int cx = static_cast<int>(std::floor(local_coords.dot(u) / cell_size.x));
-    int cy = static_cast<int>(std::floor(local_coords.dot(v) / cell_size.y));
+    int cx = static_cast<int>(std::floor(local_coords.dot(u) / cell_size_.x));
+    int cy = static_cast<int>(std::floor(local_coords.dot(v) / cell_size_.y));
     CellCoord key = {cx, cy};
     bitmap[key].push_back(idx);
   }
@@ -44,21 +43,19 @@ void Plane::extractLargestConnectedComponent(
 
 void Plane::computeInliersIndices(
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const Thresholds thresholds, const std::vector<bool> &remaining_points) {
+    const std::vector<bool> &remaining_points) {
   inliers_indices_.clear();
   // inliers must satisfy both distance and normal thresholds
   for (size_t i = 0; i < cloud->size(); i++) {
     if (!remaining_points[i]) continue;
     pcl::PointNormal point = cloud->at(i);
-    if (distanceCheck(point, thresholds.distance) &&
-        normalCheck(point, thresholds.normal)) {
+    if (distanceCheck(point) && normalCheck(point)) {
       inliers_indices_.push_back(i);
     }
   }
 
   // extract the largest connected component
-  CellSize cell_size = {thresholds.distance, thresholds.distance};
-  extractLargestConnectedComponent(cloud, cell_size);
+  extractLargestConnectedComponent(cloud);
 }
 
 }  // namespace efficient_ransac

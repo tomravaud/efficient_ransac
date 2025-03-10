@@ -8,10 +8,9 @@ Detector::Detector(const std::filesystem::path &config_path)
 }
 
 void Detector::randomSampling(
-  std::set<int> &unique_indices,
-  int num_point_candidates,
-  const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-  const std::vector<bool> &remaining_points) {
+    std::set<int> &unique_indices, int num_point_candidates,
+    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+    const std::vector<bool> &remaining_points) {
   while (unique_indices.size() < num_point_candidates) {
     // TODO: use a better random number generator
     int random_index = rand() % cloud->size();
@@ -21,23 +20,23 @@ void Detector::randomSampling(
 }
 
 bool Detector::localizedSampling(
-  std::set<int> &unique_indices,
-  int &random_depth,
-  int num_point_candidates,
-  const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-  const std::vector<bool> &remaining_points,
-  const std::vector<double> &probabilities,
-  const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
-  std::mt19937 &gen){
+    std::set<int> &unique_indices, int &random_depth, int num_point_candidates,
+    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+    const std::vector<bool> &remaining_points,
+    const std::vector<double> &probabilities,
+    const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
+    std::mt19937 &gen) {
   // std::vector<int> remaining_indices;
   // for (int i = 0; i < cloud->size(); i++) {
   //   if (remaining_points[i]) remaining_indices.push_back(i);
   // }
   // // Get first random index of a remaining point
-  // int first_point_index = remaining_indices[rand() % remaining_indices.size()];
+  // int first_point_index = remaining_indices[rand() %
+  // remaining_indices.size()];
 
   // sample a random index which is true in remaining_points whith the generator
-  std::discrete_distribution<> dist_first_point(remaining_points.begin(), remaining_points.end());
+  std::discrete_distribution<> dist_first_point(remaining_points.begin(),
+                                                remaining_points.end());
   int first_point_index = dist_first_point(gen);
 
   unique_indices.insert(first_point_index);
@@ -126,15 +125,19 @@ int Detector::detect(const std::filesystem::path &input_path,
   // shapes to be used for detection
   std::vector<std::function<std::shared_ptr<Shape>(
       const std::vector<pcl::PointNormal> &)>>
-      shape_constructors = {[](const std::vector<pcl::PointNormal> &pts) {
-                              return std::make_shared<Plane>(pts);
-                            },
-                            [](const std::vector<pcl::PointNormal> &pts) {
-                              return std::make_shared<Sphere>(pts);
-                            },
-                            [](const std::vector<pcl::PointNormal> &pts) {
-                              return std::make_shared<Cylinder>(pts);
-                            }};
+      shape_constructors = {
+          [this](const std::vector<pcl::PointNormal> &pts) {
+            return std::make_shared<Plane>(pts, this->params_.thresholds,
+                                           this->params_.bitmap_cell_size);
+          },
+          [this](const std::vector<pcl::PointNormal> &pts) {
+            return std::make_shared<Sphere>(pts, this->params_.thresholds,
+                                            this->params_.bitmap_cell_size);
+          },
+          [this](const std::vector<pcl::PointNormal> &pts) {
+            return std::make_shared<Cylinder>(pts, this->params_.thresholds,
+                                              this->params_.bitmap_cell_size);
+          }};
 
   // keep track of the remaining points
   std::vector<bool> remaining_points(cloud->size(), true);
@@ -149,23 +152,23 @@ int Detector::detect(const std::filesystem::path &input_path,
                          params_.num_point_candidates),
                  candidate_shapes.size()) <
              params_.success_probability_threshold &&
-         extracted_shapes.size() < params_.max_num_shapes && cloud->size() > 0) {
+         extracted_shapes.size() < params_.max_num_shapes &&
+         cloud->size() > 0) {
     // generate a given number of valid candidate shapes
     int num_valid_shapes = 0;
     while (num_valid_shapes < params_.num_candidates) {
       // sample a set of points
       std::set<int> unique_indices;
       int random_depth;
-      if (params_.use_localized_sampling){
-        if(!localizedSampling(unique_indices, random_depth,
-                              params_.num_point_candidates, cloud,
-                              remaining_points, probabilities, octree, gen))
-        continue;
+      if (params_.use_localized_sampling) {
+        if (!localizedSampling(unique_indices, random_depth,
+                               params_.num_point_candidates, cloud,
+                               remaining_points, probabilities, octree, gen))
+          continue;
       } else {
         randomSampling(unique_indices, params_.num_point_candidates, cloud,
-                        remaining_points);
+                       remaining_points);
       }
-
 
       std::vector<pcl::PointNormal> candidate_points;
       for (int index : unique_indices) {
@@ -177,10 +180,9 @@ int Detector::detect(const std::filesystem::path &input_path,
         auto candidate_shape = constructor(candidate_points);
 
         // check if the candidate shape is valid
-        if (candidate_shape->isValid(candidate_points, params_.thresholds)) {
+        if (candidate_shape->isValid(candidate_points)) {
           num_valid_shapes++;
-          candidate_shape->computeInliersIndices(cloud, params_.thresholds,
-                                                 remaining_points);
+          candidate_shape->computeInliersIndices(cloud, remaining_points);
           if (params_.use_localized_sampling)
             depth_scores[random_depth] +=
                 candidate_shape->inliers_indices().size();
@@ -203,7 +205,6 @@ int Detector::detect(const std::filesystem::path &input_path,
       }
     }
 
-
     // find inliers for each candidate shape and keep the best one
     int best_shape_index = -1;
     int best_shape_num_inliers = 0;
@@ -223,24 +224,16 @@ int Detector::detect(const std::filesystem::path &input_path,
 
     // test if the best shape is good enough to be kept
     bool accept;
-    if (params_.use_localized_sampling){
-      accept=localizedAcceptance(
-        best_shape_inliers.size(),
-        cloud->size(),
-        params_.num_point_candidates,
-        candidate_shapes.size(),
-        max_depth,
-        params_.success_probability_threshold
-      );
-    }
-    else{
-      accept=randomAcceptance(
-        best_shape_inliers.size(),
-        cloud->size(),
-        params_.num_point_candidates,
-        candidate_shapes.size(),
-        params_.success_probability_threshold
-      );
+    if (params_.use_localized_sampling) {
+      accept = localizedAcceptance(best_shape_inliers.size(), cloud->size(),
+                                   params_.num_point_candidates,
+                                   candidate_shapes.size(), max_depth,
+                                   params_.success_probability_threshold);
+    } else {
+      accept = randomAcceptance(best_shape_inliers.size(), cloud->size(),
+                                params_.num_point_candidates,
+                                candidate_shapes.size(),
+                                params_.success_probability_threshold);
     }
     if (accept) {
       // update the point cloud
@@ -248,7 +241,6 @@ int Detector::detect(const std::filesystem::path &input_path,
 
       // add the best shape to the extracted shapes
       extracted_shapes.push_back(std::move(candidate_shapes[best_shape_index]));
-
 
       // TODO: Remove shared point instead of removing the shape candidate
       // remove shapes sharing inliers with the best shape
@@ -267,7 +259,6 @@ int Detector::detect(const std::filesystem::path &input_path,
                     });
               }),
           candidate_shapes.end());
-      
     }
   }
   std::clog << "[INFO] Detected " << extracted_shapes.size() << " shapes\n";

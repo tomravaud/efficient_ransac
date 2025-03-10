@@ -2,8 +2,9 @@
 
 namespace efficient_ransac {
 
-Cylinder::Cylinder(std::vector<pcl::PointNormal> candidate_points)
-    : Shape(candidate_points) {
+Cylinder::Cylinder(std::vector<pcl::PointNormal> candidate_points,
+                   Thresholds thresholds, CellSize cell_size)
+    : Shape(candidate_points, thresholds, cell_size) {
   // compute the cylinder parameters
   Eigen::Vector3f p0 = candidate_points[0].getVector3fMap();
   Eigen::Vector3f p1 = candidate_points[1].getVector3fMap();
@@ -47,21 +48,26 @@ Cylinder::Cylinder(std::vector<pcl::PointNormal> candidate_points)
   float t0 = (b * d2 - c * d1) / denom;
   center_ = proj_p0 + t0 * n0;
   radius_ = std::abs(t0);
+
+  // filter too small radius
+  if (radius_ < 5 * cell_size_.y / (2 * M_PI)) {
+    axis_ = Eigen::Vector3f::Zero();
+    center_ = Eigen::Vector3f::Zero();
+    radius_ = 0.0f;
+    return;
+  }
 }
 
-bool Cylinder::isValid(std::vector<pcl::PointNormal> candidate_points,
-                       Thresholds thresholds) {
+bool Cylinder::isValid(std::vector<pcl::PointNormal> candidate_points) {
   for (auto point : candidate_points) {
-    if (radius_ == 0.0f || !normalCheck(point, thresholds.normal) ||
-        !distanceCheck(point, thresholds.distance))
+    if (radius_ == 0.0f || !normalCheck(point) || !distanceCheck(point))
       return false;
   }
   return true;
 }
 
 void Cylinder::extractLargestConnectedComponent(
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const CellSize &cell_size) {
+    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud) {
   // local coordinate system in the cylinder
   Eigen::Vector3f u, v;
   u = axis_.unitOrthogonal();
@@ -82,8 +88,8 @@ void Cylinder::extractLargestConnectedComponent(
     float arc_length = radius_ * angular_coord;  // back to distance
 
     // cell coordinates
-    int cx = static_cast<int>(std::floor(axial_coord / cell_size.x));
-    int cy = static_cast<int>(std::floor(arc_length / cell_size.y));
+    int cx = static_cast<int>(std::floor(axial_coord / cell_size_.x));
+    int cy = static_cast<int>(std::floor(arc_length / cell_size_.y));
     CellCoord key = {cx, cy};
     bitmap[key].push_back(idx);
   }
@@ -92,28 +98,26 @@ void Cylinder::extractLargestConnectedComponent(
   WrapParams wrap_params;
   wrap_params.wrap_y = true;
   wrap_params.bitmap_size_y =
-      static_cast<int>(2 * M_PI * radius_ / cell_size.y);
+      static_cast<int>(2 * M_PI * radius_ / cell_size_.y);
   inliers_indices_ =
       extractLargestConnectedComponentFromBitmap(bitmap, wrap_params);
 }
 
 void Cylinder::computeInliersIndices(
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const Thresholds thresholds, const std::vector<bool> &remaining_points) {
+    const std::vector<bool> &remaining_points) {
   inliers_indices_.clear();
   // inliers must satisfy both distance and normal thresholds
   for (size_t i = 0; i < cloud->size(); i++) {
     if (!remaining_points[i]) continue;
     pcl::PointNormal point = cloud->at(i);
-    if (distanceCheck(point, thresholds.distance) &&
-        normalCheck(point, thresholds.normal)) {
+    if (distanceCheck(point) && normalCheck(point)) {
       inliers_indices_.push_back(i);
     }
   }
 
   // extract the largest connected component
-  CellSize cell_size = {thresholds.distance, thresholds.distance};
-  extractLargestConnectedComponent(cloud, cell_size);
+  extractLargestConnectedComponent(cloud);
 }
 
 }  // namespace efficient_ransac

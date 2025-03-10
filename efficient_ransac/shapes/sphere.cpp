@@ -2,8 +2,9 @@
 
 namespace efficient_ransac {
 
-Sphere::Sphere(std::vector<pcl::PointNormal> candidate_points)
-    : Shape(candidate_points) {
+Sphere::Sphere(std::vector<pcl::PointNormal> candidate_points,
+               Thresholds thresholds, CellSize cell_size)
+    : Shape(candidate_points, thresholds, cell_size) {
   // compute the sphere parameters
   Eigen::Vector3f p0 = candidate_points[0].getVector3fMap();
   Eigen::Vector3f p1 = candidate_points[1].getVector3fMap();
@@ -41,27 +42,31 @@ Sphere::Sphere(std::vector<pcl::PointNormal> candidate_points)
   float r0 = (p0 - center_).norm();
   float r1 = (p1 - center_).norm();
   radius_ = (r0 + r1) / 2.0f;
+
+  // filter too small radius
+  if (radius_ < 5 * cell_size_.y) {
+    center_ = Eigen::Vector3f::Zero();
+    radius_ = 0.0f;
+    return;
+  }
 }
 
-bool Sphere::isValid(std::vector<pcl::PointNormal> candidate_points,
-                     Thresholds thresholds) {
+bool Sphere::isValid(std::vector<pcl::PointNormal> candidate_points) {
   for (auto point : candidate_points) {
-    if (radius_ == 0.0f || !normalCheck(point, thresholds.normal) ||
-        !distanceCheck(point, thresholds.distance))
+    if (radius_ == 0.0f || !normalCheck(point) || !distanceCheck(point))
       return false;
   }
   return true;
 }
 
 void Sphere::extractLargestConnectedComponent(
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const CellSize &cell_size) {
+    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud) {
   // compute 1 common bitmap for the upper and lower hemispheres
   // (in the original implementation, 2 bitmaps were used)
   std::unordered_map<CellCoord, std::vector<int>, CellCoordHasher> bitmap;
 
-  const float scaled_cell_size_x = cell_size.x / (2 * radius_);
-  const float scaled_cell_size_y = cell_size.y / (2 * radius_);
+  const float scaled_cell_size_x = cell_size_.x / (2 * radius_);
+  const float scaled_cell_size_y = cell_size_.y / (2 * radius_);
 
   const int grid_size_x = static_cast<int>(1 / scaled_cell_size_x);
   const int grid_size_y = static_cast<int>(1 / scaled_cell_size_y);
@@ -100,22 +105,20 @@ void Sphere::extractLargestConnectedComponent(
 
 void Sphere::computeInliersIndices(
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const Thresholds thresholds, const std::vector<bool> &remaining_points) {
+    const std::vector<bool> &remaining_points) {
   inliers_indices_.clear();
 
   // inliers must satisfy both distance and normal thresholds
   for (size_t i = 0; i < cloud->size(); i++) {
     if (!remaining_points[i]) continue;
     pcl::PointNormal point = cloud->at(i);
-    if (distanceCheck(point, thresholds.distance) &&
-        normalCheck(point, thresholds.normal)) {
+    if (distanceCheck(point) && normalCheck(point)) {
       inliers_indices_.push_back(i);
     }
   }
 
   // extract the largest connected component
-  CellSize cell_size = {thresholds.distance / 4, thresholds.distance / 4};
-  extractLargestConnectedComponent(cloud, cell_size);
+  extractLargestConnectedComponent(cloud);
 }
 
 }  // namespace efficient_ransac
