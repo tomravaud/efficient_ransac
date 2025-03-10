@@ -99,7 +99,6 @@ num_shape_candidates)<<std::endl;
         success_probability_threshold;
     }
 
- private:
   DetectorParams params_;
 };
 

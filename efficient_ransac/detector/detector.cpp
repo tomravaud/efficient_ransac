@@ -13,6 +13,7 @@ void Detector::randomSampling(
   const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
   const std::vector<bool> &remaining_points) {
   while (unique_indices.size() < num_point_candidates) {
+    // TODO: use a better random number generator
     int random_index = rand() % cloud->size();
     if (remaining_points[random_index])
       unique_indices.insert(random_index);  // Only inserts unique values
@@ -28,12 +29,17 @@ bool Detector::localizedSampling(
   const std::vector<double> &probabilities,
   const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
   std::mt19937 &gen){
-  std::vector<int> remaining_indices;
-  for (int i = 0; i < cloud->size(); i++) {
-    if (remaining_points[i]) remaining_indices.push_back(i);
-  }
-  // Get first random index of a remaining point
-  int first_point_index = remaining_indices[rand() % remaining_indices.size()];
+  // std::vector<int> remaining_indices;
+  // for (int i = 0; i < cloud->size(); i++) {
+  //   if (remaining_points[i]) remaining_indices.push_back(i);
+  // }
+  // // Get first random index of a remaining point
+  // int first_point_index = remaining_indices[rand() % remaining_indices.size()];
+
+  // sample a random index which is true in remaining_points whith the generator
+  std::discrete_distribution<> dist_first_point(remaining_points.begin(), remaining_points.end());
+  int first_point_index = dist_first_point(gen);
+
   unique_indices.insert(first_point_index);
 
   // Get the key of the voxel containing the first point at a random depth
@@ -143,17 +149,17 @@ int Detector::detect(const std::filesystem::path &input_path,
                          params_.num_point_candidates),
                  candidate_shapes.size()) <
              params_.success_probability_threshold &&
-         extracted_shapes.size() < params_.max_num_shapes) {
+         extracted_shapes.size() < params_.max_num_shapes && cloud->size() > 0) {
     // generate a given number of valid candidate shapes
     int num_valid_shapes = 0;
     while (num_valid_shapes < params_.num_candidates) {
       // sample a set of points
       std::set<int> unique_indices;
       int random_depth;
-      if (params_.use_localized_sampling &&
-          !localizedSampling(unique_indices, random_depth,
+      if (params_.use_localized_sampling){
+        if(!localizedSampling(unique_indices, random_depth,
                               params_.num_point_candidates, cloud,
-                              remaining_points, probabilities, octree, gen)) {
+                              remaining_points, probabilities, octree, gen))
         continue;
       } else {
         randomSampling(unique_indices, params_.num_point_candidates, cloud,
@@ -243,6 +249,8 @@ int Detector::detect(const std::filesystem::path &input_path,
       // add the best shape to the extracted shapes
       extracted_shapes.push_back(std::move(candidate_shapes[best_shape_index]));
 
+
+      // TODO: Remove shared point instead of removing the shape candidate
       // remove shapes sharing inliers with the best shape
       candidate_shapes.erase(
           std::remove_if(
@@ -259,6 +267,7 @@ int Detector::detect(const std::filesystem::path &input_path,
                     });
               }),
           candidate_shapes.end());
+      
     }
   }
   std::clog << "[INFO] Detected " << extracted_shapes.size() << " shapes\n";

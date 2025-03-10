@@ -100,6 +100,7 @@ void Cylinder::extractLargestConnectedComponent(
 void Cylinder::computeInliersIndices(
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
     const Thresholds thresholds, const std::vector<bool> &remaining_points) {
+  inliers_indices_.clear();
   // inliers must satisfy both distance and normal thresholds
   for (size_t i = 0; i < cloud->size(); i++) {
     if (!remaining_points[i]) continue;

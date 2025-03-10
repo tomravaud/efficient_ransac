@@ -2,9 +2,9 @@ success_probability_threshold: 0.99
 num_candidates: 100
 num_point_candidates: 3
 num_inliers_min: 100
-max_num_shapes: 9
+max_num_shapes: 3
 use_localized_sampling: false
 
 thresholds:
-  distance: 0.1
-  normal: 0.2
+  distance: 0.2
+  normal: 1.5
