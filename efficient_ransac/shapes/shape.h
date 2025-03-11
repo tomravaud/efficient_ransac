@@ -25,6 +25,8 @@ class Shape {
   virtual void computeInliersIndices(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
       const std::vector<bool> &remaining_points) = 0;
+  
+  void removeFromInliersIndices(std::vector<int> indices_to_remove); 
 
   // Getters
   std::vector<int> inliers_indices() { return inliers_indices_; }

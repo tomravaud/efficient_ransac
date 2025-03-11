@@ -8,18 +8,28 @@ Detector::Detector(const std::filesystem::path &config_path)
 }
 
 void Detector::randomSampling(
+<<<<<<< Updated upstream
     std::set<int> &unique_indices, int num_point_candidates,
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
     const std::vector<bool> &remaining_points) {
+=======
+  std::set<int> &unique_indices,
+  int num_point_candidates,
+  const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+  const std::vector<bool> &remaining_points,
+  std::mt19937 &gen,
+  std::discrete_distribution<> &dist){  
+>>>>>>> Stashed changes
   while (unique_indices.size() < num_point_candidates) {
-    // TODO: use a better random number generator
-    int random_index = rand() % cloud->size();
-    if (remaining_points[random_index])
-      unique_indices.insert(random_index);  // Only inserts unique values
+    unique_indices.insert(dist(gen));  // Only inserts unique values
+    // int random_index = rand() % cloud->size();
+    // if (remaining_points[random_index])
+    //   unique_indices.insert(random_index);  // Only inserts unique values
   }
 }
 
 bool Detector::localizedSampling(
+<<<<<<< Updated upstream
     std::set<int> &unique_indices, int &random_depth, int num_point_candidates,
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
     const std::vector<bool> &remaining_points,
@@ -37,13 +47,25 @@ bool Detector::localizedSampling(
   // sample a random index which is true in remaining_points whith the generator
   std::discrete_distribution<> dist_first_point(remaining_points.begin(),
                                                 remaining_points.end());
+=======
+  std::set<int> &unique_indices,
+  int &random_depth,
+  int num_point_candidates,
+  const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+  const std::vector<bool> &remaining_points,
+  const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
+  std::mt19937 &gen,
+  std::discrete_distribution<> &dist_first_point,
+  std::discrete_distribution<> &dist_depth) {
+
+  // Get the first point at random
+>>>>>>> Stashed changes
   int first_point_index = dist_first_point(gen);
 
   unique_indices.insert(first_point_index);
 
   // Get the key of the voxel containing the first point at a random depth
-  std::discrete_distribution<> dist(probabilities.begin(), probabilities.end());
-  random_depth = dist(gen);
+  random_depth = dist_depth(gen);
 
   // Get the point indices of the voxel
   std::vector<int> point_indices_voxel;
@@ -118,6 +140,7 @@ int Detector::detect(const std::filesystem::path &input_path,
   float uniform_rate = 0.1;
   std::random_device rd;
   std::mt19937 gen(rd());
+  std::discrete_distribution<> dist_depth(probabilities.begin(), probabilities.end());
 
   std::vector<std::shared_ptr<Shape>> candidate_shapes;
   std::vector<std::shared_ptr<Shape>> extracted_shapes;
@@ -125,6 +148,7 @@ int Detector::detect(const std::filesystem::path &input_path,
   // shapes to be used for detection
   std::vector<std::function<std::shared_ptr<Shape>(
       const std::vector<pcl::PointNormal> &)>>
+<<<<<<< Updated upstream
       shape_constructors = {
           [this](const std::vector<pcl::PointNormal> &pts) {
             return std::make_shared<Plane>(pts, this->params_.thresholds,
@@ -138,6 +162,17 @@ int Detector::detect(const std::filesystem::path &input_path,
             return std::make_shared<Cylinder>(pts, this->params_.thresholds,
                                               this->params_.bitmap_cell_size);
           }};
+=======
+      shape_constructors = {[](const std::vector<pcl::PointNormal> &pts) {
+                              return std::make_shared<Plane>(pts);
+                            },
+                            [](const std::vector<pcl::PointNormal> &pts) {
+                              return std::make_shared<Sphere>(pts);
+                            // },
+                            // [](const std::vector<pcl::PointNormal> &pts) {
+                            //   return std::make_shared<Cylinder>(pts);
+                            }};
+>>>>>>> Stashed changes
 
   // keep track of the remaining points
   std::vector<bool> remaining_points(cloud->size(), true);
@@ -156,10 +191,12 @@ int Detector::detect(const std::filesystem::path &input_path,
          cloud->size() > 0) {
     // generate a given number of valid candidate shapes
     int num_valid_shapes = 0;
+    std::discrete_distribution<> dist(remaining_points.begin(), remaining_points.end());
     while (num_valid_shapes < params_.num_candidates) {
       // sample a set of points
       std::set<int> unique_indices;
       int random_depth;
+<<<<<<< Updated upstream
       if (params_.use_localized_sampling) {
         if (!localizedSampling(unique_indices, random_depth,
                                params_.num_point_candidates, cloud,
@@ -168,6 +205,16 @@ int Detector::detect(const std::filesystem::path &input_path,
       } else {
         randomSampling(unique_indices, params_.num_point_candidates, cloud,
                        remaining_points);
+=======
+      if (params_.use_localized_sampling){
+        if(!localizedSampling(unique_indices, random_depth,
+                              params_.num_point_candidates, cloud,
+                              remaining_points, octree, gen, dist, dist_depth))
+        continue;
+      } else {
+        randomSampling(unique_indices, params_.num_point_candidates, cloud,
+                        remaining_points, gen, dist);
+>>>>>>> Stashed changes
       }
 
       std::vector<pcl::PointNormal> candidate_points;
@@ -200,9 +247,10 @@ int Detector::detect(const std::filesystem::path &input_path,
       // Update the probabilities
       for (int i = 0; i < max_depth; i++) {
         probabilities[i] =
-            uniform_rate * depth_scores[i] / probabilities[i] / weight +
-            (1 - uniform_rate) / max_depth;
+            (1-uniform_rate) * depth_scores[i] / probabilities[i] / weight +
+             uniform_rate / max_depth;
       }
+      dist_depth = std::discrete_distribution<>(probabilities.begin(), probabilities.end());
     }
 
     // find inliers for each candidate shape and keep the best one
@@ -243,7 +291,7 @@ int Detector::detect(const std::filesystem::path &input_path,
       extracted_shapes.push_back(std::move(candidate_shapes[best_shape_index]));
 
       // TODO: Remove shared point instead of removing the shape candidate
-      // remove shapes sharing inliers with the best shape
+      remove shapes sharing inliers with the best shape
       candidate_shapes.erase(
           std::remove_if(
               candidate_shapes.begin(), candidate_shapes.end(),
@@ -259,6 +307,26 @@ int Detector::detect(const std::filesystem::path &input_path,
                     });
               }),
           candidate_shapes.end());
+<<<<<<< Updated upstream
+=======
+      for (auto &candidate_shape : candidate_shapes) {
+        if (!candidate_shape) {
+          std::cerr << "Null candidate_shape detected!" << std::endl;
+          continue;
+        }
+        candidate_shape->removeFromInliersIndices(best_shape_inliers);
+      }
+      std::cout<<"success"<<std::endl;
+      
+      // candidate_shapes.erase(
+      //     std::remove_if(candidate_shapes.begin(), candidate_shapes.end(),
+      //         [this,&best_shape_inliers](const std::shared_ptr<Shape> &candidate_shape) {
+      //           if (!candidate_shape) return true;  // protect against nullptr
+      //           candidate_shape->removeFromInliersIndices(best_shape_inliers);
+      //           return candidate_shape->inliers_indices().size() < this->params_.num_inliers_min;
+      //         }),
+      //     candidate_shapes.end());
+>>>>>>> Stashed changes
     }
   }
   std::clog << "[INFO] Detected " << extracted_shapes.size() << " shapes\n";
