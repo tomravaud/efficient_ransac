@@ -8,18 +8,12 @@ Detector::Detector(const std::filesystem::path &config_path)
 }
 
 void Detector::randomSampling(
-<<<<<<< Updated upstream
-    std::set<int> &unique_indices, int num_point_candidates,
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const std::vector<bool> &remaining_points) {
-=======
   std::set<int> &unique_indices,
   int num_point_candidates,
   const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
   const std::vector<bool> &remaining_points,
   std::mt19937 &gen,
   std::discrete_distribution<> &dist){  
->>>>>>> Stashed changes
   while (unique_indices.size() < num_point_candidates) {
     unique_indices.insert(dist(gen));  // Only inserts unique values
     // int random_index = rand() % cloud->size();
@@ -29,25 +23,6 @@ void Detector::randomSampling(
 }
 
 bool Detector::localizedSampling(
-<<<<<<< Updated upstream
-    std::set<int> &unique_indices, int &random_depth, int num_point_candidates,
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const std::vector<bool> &remaining_points,
-    const std::vector<double> &probabilities,
-    const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
-    std::mt19937 &gen) {
-  // std::vector<int> remaining_indices;
-  // for (int i = 0; i < cloud->size(); i++) {
-  //   if (remaining_points[i]) remaining_indices.push_back(i);
-  // }
-  // // Get first random index of a remaining point
-  // int first_point_index = remaining_indices[rand() %
-  // remaining_indices.size()];
-
-  // sample a random index which is true in remaining_points whith the generator
-  std::discrete_distribution<> dist_first_point(remaining_points.begin(),
-                                                remaining_points.end());
-=======
   std::set<int> &unique_indices,
   int &random_depth,
   int num_point_candidates,
@@ -59,7 +34,6 @@ bool Detector::localizedSampling(
   std::discrete_distribution<> &dist_depth) {
 
   // Get the first point at random
->>>>>>> Stashed changes
   int first_point_index = dist_first_point(gen);
 
   unique_indices.insert(first_point_index);
@@ -148,7 +122,6 @@ int Detector::detect(const std::filesystem::path &input_path,
   // shapes to be used for detection
   std::vector<std::function<std::shared_ptr<Shape>(
       const std::vector<pcl::PointNormal> &)>>
-<<<<<<< Updated upstream
       shape_constructors = {
           [this](const std::vector<pcl::PointNormal> &pts) {
             return std::make_shared<Plane>(pts, this->params_.thresholds,
@@ -162,17 +135,6 @@ int Detector::detect(const std::filesystem::path &input_path,
             return std::make_shared<Cylinder>(pts, this->params_.thresholds,
                                               this->params_.bitmap_cell_size);
           }};
-=======
-      shape_constructors = {[](const std::vector<pcl::PointNormal> &pts) {
-                              return std::make_shared<Plane>(pts);
-                            },
-                            [](const std::vector<pcl::PointNormal> &pts) {
-                              return std::make_shared<Sphere>(pts);
-                            // },
-                            // [](const std::vector<pcl::PointNormal> &pts) {
-                            //   return std::make_shared<Cylinder>(pts);
-                            }};
->>>>>>> Stashed changes
 
   // keep track of the remaining points
   std::vector<bool> remaining_points(cloud->size(), true);
@@ -196,16 +158,6 @@ int Detector::detect(const std::filesystem::path &input_path,
       // sample a set of points
       std::set<int> unique_indices;
       int random_depth;
-<<<<<<< Updated upstream
-      if (params_.use_localized_sampling) {
-        if (!localizedSampling(unique_indices, random_depth,
-                               params_.num_point_candidates, cloud,
-                               remaining_points, probabilities, octree, gen))
-          continue;
-      } else {
-        randomSampling(unique_indices, params_.num_point_candidates, cloud,
-                       remaining_points);
-=======
       if (params_.use_localized_sampling){
         if(!localizedSampling(unique_indices, random_depth,
                               params_.num_point_candidates, cloud,
@@ -214,7 +166,6 @@ int Detector::detect(const std::filesystem::path &input_path,
       } else {
         randomSampling(unique_indices, params_.num_point_candidates, cloud,
                         remaining_points, gen, dist);
->>>>>>> Stashed changes
       }
 
       std::vector<pcl::PointNormal> candidate_points;
@@ -307,16 +258,14 @@ int Detector::detect(const std::filesystem::path &input_path,
                     });
               }),
           candidate_shapes.end());
-<<<<<<< Updated upstream
-=======
-      for (auto &candidate_shape : candidate_shapes) {
-        if (!candidate_shape) {
-          std::cerr << "Null candidate_shape detected!" << std::endl;
-          continue;
-        }
-        candidate_shape->removeFromInliersIndices(best_shape_inliers);
-      }
-      std::cout<<"success"<<std::endl;
+      // for (auto &candidate_shape : candidate_shapes) {
+      //   if (!candidate_shape) {
+      //     std::cerr << "Null candidate_shape detected!" << std::endl;
+      //     continue;
+      //   }
+      //   candidate_shape->removeFromInliersIndices(best_shape_inliers);
+      // }
+      // std::cout<<"success"<<std::endl;
       
       // candidate_shapes.erase(
       //     std::remove_if(candidate_shapes.begin(), candidate_shapes.end(),
@@ -326,7 +275,6 @@ int Detector::detect(const std::filesystem::path &input_path,
       //           return candidate_shape->inliers_indices().size() < this->params_.num_inliers_min;
       //         }),
       //     candidate_shapes.end());
->>>>>>> Stashed changes
     }
   }
   std::clog << "[INFO] Detected " << extracted_shapes.size() << " shapes\n";
