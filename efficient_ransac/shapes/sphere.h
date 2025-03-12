@@ -14,20 +14,19 @@ class Sphere final : public Shape {
 
   bool isValid(std::vector<pcl::PointNormal> candidate_points) override;
 
-  void computeInliersIndices(
-      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-      const std::vector<bool> &remaining_points) override;
+  // void computeInliersIndices(
+  //     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+  //     const std::vector<bool> &remaining_points) override;
 
  private:
-  inline bool distanceCheck(pcl::PointNormal point) override {
-    return std::abs((point.getVector3fMap() - center_).norm() - radius_) <
-           thresholds_.distance;
+  inline float distance(pcl::PointNormal point) override {
+    return std::abs((point.getVector3fMap() - center_).norm() - radius_);
   }
-  inline bool normalCheck(pcl::PointNormal point) override {
+  inline float angle(pcl::PointNormal point) override {
     Eigen::Vector3f normal_sphere =
         (point.getVector3fMap() - center_).normalized();
     Eigen::Vector3f normal_point = point.getNormalVector3fMap().normalized();
-    return acos(std::abs(normal_sphere.dot(normal_point))) < thresholds_.normal;
+    return acos(std::abs(normal_sphere.dot(normal_point)));
   }
   void extractLargestConnectedComponent(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud) override;

@@ -15,7 +15,7 @@ Plane::Plane(std::vector<pcl::PointNormal> candidate_points,
 
 bool Plane::isValid(std::vector<pcl::PointNormal> candidate_points) {
   for (auto point : candidate_points) {
-    if (!normalCheck(point)) return false;
+    if (angle(point)>= thresholds_.normal) return false;
   }
   return true;
 }
@@ -39,23 +39,6 @@ void Plane::extractLargestConnectedComponent(
 
   // find the largest connected component
   inliers_indices_ = extractLargestConnectedComponentFromBitmap(bitmap);
-}
-
-void Plane::computeInliersIndices(
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const std::vector<bool> &remaining_points) {
-  inliers_indices_.clear();
-  // inliers must satisfy both distance and normal thresholds
-  for (size_t i = 0; i < cloud->size(); i++) {
-    if (!remaining_points[i]) continue;
-    pcl::PointNormal point = cloud->at(i);
-    if (distanceCheck(point) && normalCheck(point)) {
-      inliers_indices_.push_back(i);
-    }
-  }
-
-  // extract the largest connected component
-  extractLargestConnectedComponent(cloud);
 }
 
 }  // namespace efficient_ransac

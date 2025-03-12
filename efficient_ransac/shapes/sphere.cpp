@@ -53,7 +53,7 @@ Sphere::Sphere(std::vector<pcl::PointNormal> candidate_points,
 
 bool Sphere::isValid(std::vector<pcl::PointNormal> candidate_points) {
   for (auto point : candidate_points) {
-    if (radius_ == 0.0f || !normalCheck(point) || !distanceCheck(point))
+    if (radius_ == 0.0f || angle(point)>=thresholds_.normal || distance(point)>=thresholds_.distance)
       return false;
   }
   return true;
@@ -101,24 +101,6 @@ void Sphere::extractLargestConnectedComponent(
   // find the largest connected component
   inliers_indices_ = extractLargestConnectedComponentFromBitmapSphere(
       bitmap, 2 * grid_size_x, grid_size_y);
-}
-
-void Sphere::computeInliersIndices(
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const std::vector<bool> &remaining_points) {
-  inliers_indices_.clear();
-
-  // inliers must satisfy both distance and normal thresholds
-  for (size_t i = 0; i < cloud->size(); i++) {
-    if (!remaining_points[i]) continue;
-    pcl::PointNormal point = cloud->at(i);
-    if (distanceCheck(point) && normalCheck(point)) {
-      inliers_indices_.push_back(i);
-    }
-  }
-
-  // extract the largest connected component
-  extractLargestConnectedComponent(cloud);
 }
 
 }  // namespace efficient_ransac

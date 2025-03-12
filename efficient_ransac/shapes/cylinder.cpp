@@ -60,7 +60,7 @@ Cylinder::Cylinder(std::vector<pcl::PointNormal> candidate_points,
 
 bool Cylinder::isValid(std::vector<pcl::PointNormal> candidate_points) {
   for (auto point : candidate_points) {
-    if (radius_ == 0.0f || !normalCheck(point) || !distanceCheck(point))
+    if (radius_ == 0.0f || angle(point)>=thresholds_.normal || distance(point)>=thresholds_.distance)
       return false;
   }
   return true;
@@ -101,23 +101,6 @@ void Cylinder::extractLargestConnectedComponent(
       static_cast<int>(2 * M_PI * radius_ / cell_size_.y);
   inliers_indices_ =
       extractLargestConnectedComponentFromBitmap(bitmap, wrap_params);
-}
-
-void Cylinder::computeInliersIndices(
-    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-    const std::vector<bool> &remaining_points) {
-  inliers_indices_.clear();
-  // inliers must satisfy both distance and normal thresholds
-  for (size_t i = 0; i < cloud->size(); i++) {
-    if (!remaining_points[i]) continue;
-    pcl::PointNormal point = cloud->at(i);
-    if (distanceCheck(point) && normalCheck(point)) {
-      inliers_indices_.push_back(i);
-    }
-  }
-
-  // extract the largest connected component
-  extractLargestConnectedComponent(cloud);
 }
 
 }  // namespace efficient_ransac

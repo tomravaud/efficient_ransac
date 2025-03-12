@@ -28,7 +28,7 @@ bool Detector::localizedSampling(
   int num_point_candidates,
   const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
   const std::vector<bool> &remaining_points,
-  const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
+  const std::shared_ptr<pcl::octree::OctreePointCloudSearch<pcl::PointNormal>> &octree,
   std::mt19937 &gen,
   std::discrete_distribution<> &dist_first_point,
   std::discrete_distribution<> &dist_depth) {
@@ -45,7 +45,7 @@ bool Detector::localizedSampling(
   std::vector<int> point_indices_voxel;
   pcl::PointNormal query_point = cloud->at(first_point_index);
   // Calculate the voxel center containing the query point
-  double voxel_size = octree.getVoxelSquaredSideLen(random_depth);
+  double voxel_size = octree->getVoxelSquaredSideLen(random_depth);
   double voxel_min_x = std::floor(query_point.x / voxel_size) * voxel_size;
   double voxel_min_y = std::floor(query_point.y / voxel_size) * voxel_size;
   double voxel_min_z = std::floor(query_point.z / voxel_size) * voxel_size;
@@ -57,7 +57,7 @@ bool Detector::localizedSampling(
 
   // Find all points within this voxel using boxSearch
   int num_points_in_voxel =
-      octree.boxSearch(voxel_min, voxel_max, point_indices_voxel);
+      octree->boxSearch(voxel_min, voxel_max, point_indices_voxel);
 
   if (num_points_in_voxel >= num_point_candidates) {
     // Remove points that have already been used
@@ -103,10 +103,10 @@ int Detector::detect(const std::filesystem::path &input_path,
 
   // build an octree of the cloud
   const float resolution = 0.1f;
-  pcl::octree::OctreePointCloudSearch<pcl::PointNormal> octree(resolution);
-  octree.setInputCloud(cloud);
-  octree.addPointsFromInputCloud();
-  int max_depth = octree.getTreeDepth();
+  auto octree = std::make_shared<pcl::octree::OctreePointCloudSearch<pcl::PointNormal>> (resolution);
+  octree->setInputCloud(cloud);
+  octree->addPointsFromInputCloud();
+  int max_depth = octree->getTreeDepth();
 
   // Vectors to update depth probability sampling
   std::vector<int> depth_scores(max_depth, 0);
@@ -180,7 +180,7 @@ int Detector::detect(const std::filesystem::path &input_path,
         // check if the candidate shape is valid
         if (candidate_shape->isValid(candidate_points)) {
           num_valid_shapes++;
-          candidate_shape->computeInliersIndices(cloud, remaining_points);
+          candidate_shape->computeInliersIndices(cloud,octree, remaining_points,true);
           if (params_.use_localized_sampling)
             depth_scores[random_depth] +=
                 candidate_shape->inliers_indices().size();
@@ -224,12 +224,12 @@ int Detector::detect(const std::filesystem::path &input_path,
     // test if the best shape is good enough to be kept
     bool accept;
     if (params_.use_localized_sampling) {
-      accept = localizedAcceptance(best_shape_inliers.size(), cloud->size(),
+      accept = localizedAcceptance(best_shape_inliers.size(), cloud_size,
                                    params_.num_point_candidates,
                                    candidate_shapes.size(), max_depth,
                                    params_.success_probability_threshold);
     } else {
-      accept = randomAcceptance(best_shape_inliers.size(), cloud->size(),
+      accept = randomAcceptance(best_shape_inliers.size(), cloud_size,
                                 params_.num_point_candidates,
                                 candidate_shapes.size(),
                                 params_.success_probability_threshold);
@@ -242,7 +242,7 @@ int Detector::detect(const std::filesystem::path &input_path,
       extracted_shapes.push_back(std::move(candidate_shapes[best_shape_index]));
 
       // TODO: Remove shared point instead of removing the shape candidate
-      remove shapes sharing inliers with the best shape
+      //remove shapes sharing inliers with the best shape
       candidate_shapes.erase(
           std::remove_if(
               candidate_shapes.begin(), candidate_shapes.end(),

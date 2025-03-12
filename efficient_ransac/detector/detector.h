@@ -73,7 +73,7 @@ class Detector {
     int num_point_candidates,
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
     const std::vector<bool> &remaining_points,
-    const pcl::octree::OctreePointCloudSearch<pcl::PointNormal> &octree,
+    const std::shared_ptr<pcl::octree::OctreePointCloudSearch<pcl::PointNormal>> &octree,
     std::mt19937 &gen,
     std::discrete_distribution<> &dist_first_point,
     std::discrete_distribution<> &dist_depth);

@@ -14,18 +14,18 @@ class Cylinder final : public Shape {
 
   bool isValid(std::vector<pcl::PointNormal> candidate_points) override;
 
-  void computeInliersIndices(
-      const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-      const std::vector<bool> &remaining_points) override;
+  // void computeInliersIndices(
+  //     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+  //     const std::vector<bool> &remaining_points) override;
 
  private:
-  inline bool distanceCheck(pcl::PointNormal point) override {
+  inline float distance(pcl::PointNormal point) override {
     // project the point onto the plane orthogonal to the axis
     Eigen::Vector3f p = point.getVector3fMap();
     Eigen::Vector3f proj_p = p - p.dot(axis_) * axis_;
-    return std::abs((proj_p - center_).norm() - radius_) < thresholds_.distance;
+    return std::abs((proj_p - center_).norm() - radius_);
   }
-  inline bool normalCheck(pcl::PointNormal point) override {
+  inline float angle(pcl::PointNormal point) override {
     // project the point onto the plane orthogonal to the axis
     Eigen::Vector3f p = point.getVector3fMap();
     Eigen::Vector3f proj_p = p - p.dot(axis_) * axis_;
@@ -33,8 +33,7 @@ class Cylinder final : public Shape {
     Eigen::Vector3f normal_cylinder = (proj_p - center_).normalized();
     // normal of the point
     Eigen::Vector3f normal_point = point.getNormalVector3fMap().normalized();
-    return std::acos(std::abs(normal_cylinder.dot(normal_point))) <
-           thresholds_.normal;
+    return std::acos(std::abs(normal_cylinder.dot(normal_point)));
   }
   void extractLargestConnectedComponent(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud) override;

@@ -2,6 +2,7 @@
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/octree/octree_search.h>
 
 #include "bitmap.h"
 
@@ -22,9 +23,11 @@ class Shape {
 
   virtual bool isValid(std::vector<pcl::PointNormal> candidate_points) = 0;
 
-  virtual void computeInliersIndices(
+  void computeInliersIndices(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
-      const std::vector<bool> &remaining_points) = 0;
+      const std::shared_ptr<pcl::octree::OctreePointCloudSearch<pcl::PointNormal>> &octree,
+      const std::vector<bool> &remaining_points,
+      const bool compute_connected_components = true);
   
   void removeFromInliersIndices(std::vector<int> indices_to_remove); 
 
@@ -32,11 +35,16 @@ class Shape {
   std::vector<int> inliers_indices() { return inliers_indices_; }
 
  protected:
-  virtual inline bool distanceCheck(pcl::PointNormal point) = 0;
-  virtual inline bool normalCheck(pcl::PointNormal normal) = 0;
+  virtual inline float distance(pcl::PointNormal point) = 0;
+  virtual inline float angle(pcl::PointNormal normal) = 0;
 
   virtual void extractLargestConnectedComponent(
       const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud) = 0;
+  
+  void getIndicesCloseToShape(
+    const std::shared_ptr<pcl::octree::OctreePointCloudSearch<pcl::PointNormal>> &octree,
+    const std::vector<bool> &remaining_points,
+    std::vector<int> &indices_close_to_shape);
 
   std::vector<int> inliers_indices_;
 
