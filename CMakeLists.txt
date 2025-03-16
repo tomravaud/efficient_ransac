@@ -9,7 +9,7 @@ endif()
 
 find_package(Python 3.10 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
-# set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Debug)
 
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)

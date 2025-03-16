@@ -184,8 +184,8 @@ int Detector::detect(const std::filesystem::path &input_path,
 
   // main loop
   std::clog << "[INFO] Detecting shapes...\n";
-  Timer timer("Detection");
-
+  Timer timer("Detection", output_path);
+  
   while (1 - pow(1 - pow((float)params_.num_inliers_min /
                              std::count(remaining_points.begin(),
                                         remaining_points.end(), true),
@@ -194,6 +194,8 @@ int Detector::detect(const std::filesystem::path &input_path,
              params_.success_probability_threshold &&
          extracted_shapes.size() < params_.max_num_shapes &&
          cloud->size() > 0) {
+    
+    
     // generate a given number of valid candidate shapes
     int num_valid_shapes = 0;
     std::discrete_distribution<> dist(remaining_points.begin(), remaining_points.end());
@@ -296,51 +298,22 @@ int Detector::detect(const std::filesystem::path &input_path,
                                                  remaining_points,
                                                  subsampled_indices);
       }
+
       // remove all candidates that have become obsolete
 			std::sort(candidate_shapes.begin(), candidate_shapes.end(), [](const std::shared_ptr<Shape> &a, const std::shared_ptr<Shape> &b) {
         return a->expected_score() > b->expected_score();
       });
 			size_t remaining_candidates = 0;
 			for(size_t i = 0; i < candidate_shapes.size(); ++i){
+        if (!candidate_shapes[i]) continue;
         if(candidate_shapes[i]->expected_score() >= params_.num_inliers_min){
-          candidate_shapes.resize(remaining_candidates);
           candidate_shapes[remaining_candidates++] = candidate_shapes[i];
         }
       }
-      // TODO: Remove shared point instead of removing the shape candidate
-      //remove shapes sharing inliers with the best shape
-      // candidate_shapes.erase(
-      //     std::remove_if(
-      //         candidate_shapes.begin(), candidate_shapes.end(),
-      //         [&best_shape_inliers](
-      //             const std::shared_ptr<Shape> &candidate_shape) {
-      //           if (!candidate_shape) return true;  // protect against nullptr
-      //           const auto &inliers = candidate_shape->inliers_indices();
-      //           return std::any_of(
-      //               best_shape_inliers.begin(), best_shape_inliers.end(),
-      //               [&inliers](int inlier) {
-      //                 return std::find(inliers.begin(), inliers.end(),
-      //                                  inlier) != inliers.end();
-      //               });
-      //         }),
-      //     candidate_shapes.end());
-      // for (auto &candidate_shape : candidate_shapes) {
-      //   if (!candidate_shape) {
-      //     std::cerr << "Null candidate_shape detected!" << std::endl;
-      //     continue;
-      //   }
-      //   candidate_shape->removeFromInliersIndices(best_shape_inliers);
-      // }
-      // std::cout<<"success"<<std::endl;
-      
-      // candidate_shapes.erase(
-      //     std::remove_if(candidate_shapes.begin(), candidate_shapes.end(),
-      //         [this,&best_shape_inliers](const std::shared_ptr<Shape> &candidate_shape) {
-      //           if (!candidate_shape) return true;  // protect against nullptr
-      //           candidate_shape->removeFromInliersIndices(best_shape_inliers);
-      //           return candidate_shape->inliers_indices().size() < this->params_.num_inliers_min;
-      //         }),
-      //     candidate_shapes.end());
+      candidate_shapes.resize(remaining_candidates);
+      timer.setTime("shape_"+std::to_string(extracted_shapes.size()));
+    
+
     }
   }
   std::clog << "[INFO] Detected " << extracted_shapes.size() << " shapes\n";
