@@ -10,6 +10,9 @@
 // pcl
 #include <pcl/io/ply_io.h>
 #include <pcl/octree/octree_search.h>
+#include <pcl/filters/random_sample.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/PointIndices.h>
 
 // yaml-cpp
 #include <yaml-cpp/yaml.h>
@@ -83,9 +86,6 @@ class Detector {
     int num_point_candidates, 
     int num_shape_candidates, 
     float success_probability_threshold){
-        std::cout<<1 - pow(1 - pow((float)num_inliers / cloud_size,
-        num_point_candidates),
-num_shape_candidates)<<std::endl;
         return 1 - pow(1 - pow((float)num_inliers / cloud_size,
                         num_point_candidates),
                 num_shape_candidates) >
@@ -98,8 +98,6 @@ num_shape_candidates)<<std::endl;
     int num_shape_candidates, 
     int max_depth,
     float success_probability_threshold){
-        std::cout<<1 - pow(1 - (float)num_inliers / (cloud_size*max_depth*pow(2,num_point_candidates-1)),
-        num_shape_candidates)<<std::endl;
         return 1 - pow(1 - (float)num_inliers / (cloud_size*max_depth*pow(2,num_point_candidates-1)),
                 num_shape_candidates) >
         success_probability_threshold;
