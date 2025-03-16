@@ -35,6 +35,7 @@ struct DetectorParams {
   bool use_localized_sampling;
   Thresholds thresholds;
   CellSize bitmap_cell_size;
+  bool use_subsampling;
 
   static DetectorParams fromYAML(const std::filesystem::path &config_path) {
     YAML::Node config = YAML::LoadFile(config_path.string());
@@ -46,12 +47,14 @@ struct DetectorParams {
     params.num_inliers_min = config["num_inliers_min"].as<int>(50);
     params.max_num_shapes = config["max_num_shapes"].as<int>(3);
     params.use_localized_sampling =
-        config["use_localized_sampling"].as<bool>(true);
+      config["use_localized_sampling"].as<bool>(true);
     params.thresholds.distance =
-        config["thresholds"]["distance"].as<float>(0.1f);
+      config["thresholds"]["distance"].as<float>(0.1f);
     params.thresholds.normal = config["thresholds"]["normal"].as<float>(0.2f);
     params.bitmap_cell_size.x = config["bitmap_cell_size"].as<float>(0.1f);
     params.bitmap_cell_size.y = config["bitmap_cell_size"].as<float>(0.1f);
+    params.use_subsampling =
+        config["use_subsampling"].as<bool>(true);
     return params;
   }
 };
@@ -80,6 +83,7 @@ class Detector {
     std::mt19937 &gen,
     std::discrete_distribution<> &dist_first_point,
     std::discrete_distribution<> &dist_depth);
+
   inline bool randomAcceptance(
     int num_inliers, 
     int cloud_size, 

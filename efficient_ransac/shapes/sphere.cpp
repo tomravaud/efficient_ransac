@@ -44,7 +44,7 @@ Sphere::Sphere(std::vector<pcl::PointNormal> candidate_points,
   radius_ = (r0 + r1) / 2.0f;
 
   // filter too small radius
-  if (radius_ < 5 * cell_size_.y) {
+  if (radius_ < 2 * cell_size_.y) {
     center_ = Eigen::Vector3f::Zero();
     radius_ = 0.0f;
     return;
@@ -65,11 +65,14 @@ void Sphere::extractLargestConnectedComponent(
   // (in the original implementation, 2 bitmaps were used)
   std::unordered_map<CellCoord, std::vector<int>, CellCoordHasher> bitmap;
 
-  const float scaled_cell_size_x = cell_size_.x / (2 * radius_);
-  const float scaled_cell_size_y = cell_size_.y / (2 * radius_);
+  float scaled_cell_size_x = cell_size_.x / (2 * radius_);
+  float scaled_cell_size_y = cell_size_.y / (2 * radius_);
 
-  const int grid_size_x = static_cast<int>(1 / scaled_cell_size_x);
-  const int grid_size_y = static_cast<int>(1 / scaled_cell_size_y);
+  const int grid_size_x = static_cast<int>(std::floor((1 / scaled_cell_size_x)));
+  const int grid_size_y = static_cast<int>(std::floor((1 / scaled_cell_size_y)));
+
+  scaled_cell_size_x = 1.0f / grid_size_x;
+  scaled_cell_size_y = 1.0f / grid_size_y;
 
   for (int idx : inliers_indices_) {
     Eigen::Vector3f local_coord = cloud->at(idx).getVector3fMap() - center_;

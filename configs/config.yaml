@@ -1,11 +1,12 @@
 success_probability_threshold: 0.99
-num_candidates: 100
+num_candidates: 200
 num_point_candidates: 3
-num_inliers_min: 1000
-max_num_shapes: 10
-use_localized_sampling: false
+num_inliers_min: 100
+max_num_shapes: 100
+use_localized_sampling: true
+use_subsampling: true
 
 thresholds:
-  distance: 0.2
+  distance: 0.1
   normal: 1
 bitmap_cell_size: 0.1

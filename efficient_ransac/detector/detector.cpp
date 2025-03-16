@@ -127,6 +127,7 @@ int Detector::detect(const std::filesystem::path &input_path,
   octree->addPointsFromInputCloud();
   int max_depth = octree->getTreeDepth();
 
+
   // build small octree for fast evaluation
   const int small_octree_size = cloud->size() / pow(2,std::max(int(std::floor(std::log((float)cloud->size())/std::log(2.f)))-9, 2));
   auto small_octree = std::make_shared<pcl::octree::OctreePointCloudSearch<pcl::PointNormal>> (resolution);
@@ -150,6 +151,7 @@ int Detector::detect(const std::filesystem::path &input_path,
   // Build the small octree with the downsampled cloud
   small_octree->setInputCloud(downsampled_cloud);
   small_octree->addPointsFromInputCloud();
+  
 
   // Vectors to update depth probability sampling
   std::vector<int> depth_scores(max_depth, 0);
@@ -186,16 +188,10 @@ int Detector::detect(const std::filesystem::path &input_path,
   std::clog << "[INFO] Detecting shapes...\n";
   Timer timer("Detection", output_path);
   
-  while (1 - pow(1 - pow((float)params_.num_inliers_min /
-                             std::count(remaining_points.begin(),
-                                        remaining_points.end(), true),
-                         params_.num_point_candidates),
-                 candidate_shapes.size()) <
-             params_.success_probability_threshold &&
-         extracted_shapes.size() < params_.max_num_shapes &&
-         cloud->size() > 0) {
-    
-    
+  bool keep_detecting = true;
+  
+  while (keep_detecting && extracted_shapes.size() < params_.max_num_shapes && cloud->size() > 0) {
+    std::cout<<"remaining points: "<<std::count(remaining_points.begin(), remaining_points.end(), true)<<std::endl;
     // generate a given number of valid candidate shapes
     int num_valid_shapes = 0;
     std::discrete_distribution<> dist(remaining_points.begin(), remaining_points.end());
@@ -226,12 +222,19 @@ int Detector::detect(const std::filesystem::path &input_path,
         // check if the candidate shape is valid
         if (candidate_shape->isValid(candidate_points)) {
           num_valid_shapes++;
-          candidate_shape->computeExpectationScore(cloud, small_octree,
+          if (params_.use_subsampling)
+             candidate_shape->computeExpectationScore(cloud, small_octree,
                                                    remaining_points,
                                                    subsampled_indices);
-          if (params_.use_localized_sampling)
-            depth_scores[random_depth] +=
-                candidate_shape->expected_score();
+          else
+            candidate_shape->computeInliersIndices(cloud, octree, remaining_points,true);
+          if (params_.use_localized_sampling){
+            if (params_.use_subsampling)
+              depth_scores[random_depth] +=
+                  candidate_shape->expected_score();
+            else
+              depth_scores[random_depth] += candidate_shape->inliers_indices().size();
+            }
           candidate_shapes.push_back(std::move(candidate_shape));
         }
       }
@@ -257,7 +260,7 @@ int Detector::detect(const std::filesystem::path &input_path,
     int best_shape_score = 0;
 
     for (int i = 0; i < params_.num_candidates; i++) {
-      int shape_score = candidate_shapes[i]->expected_score();
+      int shape_score = params_.use_subsampling ? candidate_shapes[i]->expected_score() : candidate_shapes[i]->inliers_indices().size();
       // check if the candidate shape is the best
       if (shape_score > best_shape_score) {
         best_shape_index = i;
@@ -284,7 +287,8 @@ int Detector::detect(const std::filesystem::path &input_path,
     }
     if (accept) {
       // get the inliers of the best shape
-      candidate_shapes[best_shape_index]->computeInliersIndices(cloud, octree, remaining_points,true);
+      if (params_.use_subsampling)
+        candidate_shapes[best_shape_index]->computeInliersIndices(cloud, octree, remaining_points,true);
       const auto &best_shape_inliers = candidate_shapes[best_shape_index]->inliers_indices();
 
       // update the point cloud
@@ -294,26 +298,57 @@ int Detector::detect(const std::filesystem::path &input_path,
       extracted_shapes.push_back(candidate_shapes[best_shape_index]);
 
       for (auto &candidate_shape : candidate_shapes) {
-        candidate_shape->computeExpectationScore(cloud, small_octree,
-                                                 remaining_points,
-                                                 subsampled_indices);
+        if (params_.use_subsampling)
+          candidate_shape->computeExpectationScore(cloud, small_octree,
+                                                  remaining_points,
+                                                  subsampled_indices);
+        else
+          candidate_shape->computeInliersIndices(cloud, octree, remaining_points,true);
       }
 
       // remove all candidates that have become obsolete
-			std::sort(candidate_shapes.begin(), candidate_shapes.end(), [](const std::shared_ptr<Shape> &a, const std::shared_ptr<Shape> &b) {
-        return a->expected_score() > b->expected_score();
-      });
-			size_t remaining_candidates = 0;
-			for(size_t i = 0; i < candidate_shapes.size(); ++i){
-        if (!candidate_shapes[i]) continue;
-        if(candidate_shapes[i]->expected_score() >= params_.num_inliers_min){
-          candidate_shapes[remaining_candidates++] = candidate_shapes[i];
+      if (params_.use_subsampling){
+        std::sort(candidate_shapes.begin(), candidate_shapes.end(), [](const std::shared_ptr<Shape> &a, const std::shared_ptr<Shape> &b) {
+          return a->expected_score() > b->expected_score();
+        });
+        size_t remaining_candidates = 0;
+        for(size_t i = 0; i < candidate_shapes.size(); ++i){
+          if (!candidate_shapes[i]) continue;
+          if(candidate_shapes[i]->expected_score() >= params_.num_inliers_min){
+            candidate_shapes[remaining_candidates++] = candidate_shapes[i];
+          }
         }
+        candidate_shapes.resize(remaining_candidates);
+      }else{
+        std::sort(candidate_shapes.begin(), candidate_shapes.end(), [](const std::shared_ptr<Shape> &a, const std::shared_ptr<Shape> &b) {
+          return a->inliers_indices().size() > b->inliers_indices().size();
+        });
+        size_t remaining_candidates = 0;
+        for(size_t i = 0; i < candidate_shapes.size(); ++i){
+          if (!candidate_shapes[i]) continue;
+          if(candidate_shapes[i]->inliers_indices().size() >= params_.num_inliers_min){
+            candidate_shapes[remaining_candidates++] = candidate_shapes[i];
+          }
+        }
+        candidate_shapes.resize(remaining_candidates);
       }
-      candidate_shapes.resize(remaining_candidates);
+      
       timer.setTime("shape_"+std::to_string(extracted_shapes.size()));
     
 
+      cloud_size =
+          std::count(remaining_points.begin(), remaining_points.end(), true);
+    }
+    if (params_.use_localized_sampling) {
+      keep_detecting = !localizedAcceptance(params_.num_inliers_min, cloud_size,
+                                   params_.num_point_candidates,
+                                   candidate_shapes.size(), max_depth,
+                                   params_.success_probability_threshold);
+    } else {
+      keep_detecting = !randomAcceptance(params_.num_inliers_min, cloud_size,
+                                params_.num_point_candidates,
+                                candidate_shapes.size(),
+                                params_.success_probability_threshold);
     }
   }
   std::clog << "[INFO] Detected " << extracted_shapes.size() << " shapes\n";
