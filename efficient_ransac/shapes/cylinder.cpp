@@ -60,24 +60,25 @@ Cylinder::Cylinder(std::vector<pcl::PointNormal> candidate_points,
 
 bool Cylinder::isValid(std::vector<pcl::PointNormal> candidate_points) {
   for (auto point : candidate_points) {
-    if (radius_ == 0.0f || angle(point)>=thresholds_.normal || distance(point)>=thresholds_.distance)
-    return false;
+    if (radius_ == 0.0f || angle(point) >= thresholds_.normal ||
+        distance(point) >= thresholds_.distance)
+      return false;
   }
   return true;
 }
 
 void Cylinder::extractLargestConnectedComponent(
     const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud) {
-      // local coordinate system in the cylinder
-      Eigen::Vector3f u, v;
-      u = axis_.unitOrthogonal();
-      v = axis_.cross(u);
-      
-    WrapParams wrap_params;
-    wrap_params.wrap_y = true;
-    wrap_params.bitmap_size_y =
-        static_cast<int>(std::floor((2 * M_PI * radius_ / cell_size_.y)));
-    cell_size_.y = 2 * M_PI * radius_ / wrap_params.bitmap_size_y;
+  // local coordinate system in the cylinder
+  Eigen::Vector3f u, v;
+  u = axis_.unitOrthogonal();
+  v = axis_.cross(u);
+
+  WrapParams wrap_params;
+  wrap_params.wrap_y = true;
+  wrap_params.bitmap_size_y =
+      static_cast<int>(std::floor((2 * M_PI * radius_ / cell_size_.y)));
+  cell_size_.y = 2 * M_PI * radius_ / wrap_params.bitmap_size_y;
 
   // fill the bitmap (only active cells are stored)
   std::unordered_map<CellCoord, std::vector<int>, CellCoordHasher> bitmap;
@@ -99,10 +100,42 @@ void Cylinder::extractLargestConnectedComponent(
     CellCoord key = {cx, cy};
     bitmap[key].push_back(idx);
   }
-  
+
   // find the largest connected component
   inliers_indices_ =
       extractLargestConnectedComponentFromBitmap(bitmap, wrap_params);
+}
+
+void Cylinder::refit(
+    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+    const std::shared_ptr<pcl::octree::OctreePointCloudSearch<pcl::PointNormal>>
+        &octree,
+    const std::vector<bool> &remaining_points) {
+  // compute inliers with an increased threshold
+  thresholds_.distance *= 3;
+  computeInliersIndices(cloud, octree, remaining_points, true);
+  thresholds_.distance /= 3;
+
+  // initial parameters
+  Eigen::VectorXf params(7);
+  params << center_.x(), center_.y(), center_.z(), axis_.x(), axis_.y(),
+      axis_.z(), radius_;
+
+  // functor to optimize
+  CylinderFittingFunctor functor(cloud, inliers_indices_);
+
+  // Levenberg-Marquardt optimization
+  Eigen::LevenbergMarquardt<CylinderFittingFunctor, float> lm(functor);
+  int ret = lm.minimize(params);
+
+  // update the parameters
+  center_ = Eigen::Vector3f(params[0], params[1], params[2]);
+  axis_ = Eigen::Vector3f(params[3], params[4], params[5]);
+  axis_.normalize();
+  radius_ = params[6];
+
+  // recompute the inliers
+  computeInliersIndices(cloud, octree, remaining_points, true);
 }
 
 }  // namespace efficient_ransac

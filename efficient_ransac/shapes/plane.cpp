@@ -15,7 +15,7 @@ Plane::Plane(std::vector<pcl::PointNormal> candidate_points,
 
 bool Plane::isValid(std::vector<pcl::PointNormal> candidate_points) {
   for (auto point : candidate_points) {
-    if (angle(point)>= thresholds_.normal) return false;
+    if (angle(point) >= thresholds_.normal) return false;
   }
   return true;
 }
@@ -39,6 +39,47 @@ void Plane::extractLargestConnectedComponent(
 
   // find the largest connected component
   inliers_indices_ = extractLargestConnectedComponentFromBitmap(bitmap);
+}
+
+void Plane::refit(
+    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+    const std::shared_ptr<pcl::octree::OctreePointCloudSearch<pcl::PointNormal>>
+        &octree,
+    const std::vector<bool> &remaining_points) {
+  // compute inliers with an increased threshold
+  thresholds_.distance *= 3;
+  computeInliersIndices(cloud, octree, remaining_points, true);
+  thresholds_.distance /= 3;
+
+  // matrix of inliers
+  const int num_inliers = inliers_indices_.size();
+  Eigen::MatrixXf inliers(num_inliers, 3);
+
+  // compute the barycenter of the inliers
+  Eigen::Vector3f centroid = Eigen::Vector3f::Zero();
+  for (int i = 0; i < num_inliers; i++) {
+    Eigen::Vector3f point = cloud->at(inliers_indices_[i]).getVector3fMap();
+    inliers.row(i) = point;
+    centroid += point;
+  }
+  centroid /= num_inliers;
+
+  // center the inliers
+  inliers.rowwise() -= centroid.transpose();
+
+  // compute the covariance matrix
+  Eigen::Matrix3f covariance = (inliers.transpose() * inliers) / num_inliers;
+
+  // eigen decomposition (with orthogonal matrix)
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver(covariance);
+
+  // update the plane parameters
+  point_ = centroid;
+  normal_ = solver.eigenvectors().col(0);  // smallest eigenvalue
+  normal_.normalize();
+
+  // recompute the inliers
+  computeInliersIndices(cloud, octree, remaining_points, true);
 }
 
 }  // namespace efficient_ransac

@@ -53,7 +53,8 @@ Sphere::Sphere(std::vector<pcl::PointNormal> candidate_points,
 
 bool Sphere::isValid(std::vector<pcl::PointNormal> candidate_points) {
   for (auto point : candidate_points) {
-    if (radius_ == 0.0f || angle(point)>=thresholds_.normal || distance(point)>=thresholds_.distance)
+    if (radius_ == 0.0f || angle(point) >= thresholds_.normal ||
+        distance(point) >= thresholds_.distance)
       return false;
   }
   return true;
@@ -68,8 +69,10 @@ void Sphere::extractLargestConnectedComponent(
   float scaled_cell_size_x = cell_size_.x / (2 * radius_);
   float scaled_cell_size_y = cell_size_.y / (2 * radius_);
 
-  const int grid_size_x = static_cast<int>(std::floor((1 / scaled_cell_size_x)));
-  const int grid_size_y = static_cast<int>(std::floor((1 / scaled_cell_size_y)));
+  const int grid_size_x =
+      static_cast<int>(std::floor((1 / scaled_cell_size_x)));
+  const int grid_size_y =
+      static_cast<int>(std::floor((1 / scaled_cell_size_y)));
 
   scaled_cell_size_x = 1.0f / grid_size_x;
   scaled_cell_size_y = 1.0f / grid_size_y;
@@ -104,6 +107,35 @@ void Sphere::extractLargestConnectedComponent(
   // find the largest connected component
   inliers_indices_ = extractLargestConnectedComponentFromBitmapSphere(
       bitmap, 2 * grid_size_x, grid_size_y);
+}
+
+void Sphere::refit(
+    const std::shared_ptr<pcl::PointCloud<pcl::PointNormal>> &cloud,
+    const std::shared_ptr<pcl::octree::OctreePointCloudSearch<pcl::PointNormal>>
+        &octree,
+    const std::vector<bool> &remaining_points) {
+  // compute inliers with an increased threshold
+  thresholds_.distance *= 3;
+  computeInliersIndices(cloud, octree, remaining_points, true);
+  thresholds_.distance /= 3;
+
+  // initial parameters
+  Eigen::VectorXf params(4);
+  params << center_.x(), center_.y(), center_.z(), radius_;
+
+  // functor to optimize
+  SphereFittingFunctor functor(cloud, inliers_indices_);
+
+  // Levenberg-Marquardt optimization
+  Eigen::LevenbergMarquardt<SphereFittingFunctor, float> lm(functor);
+  int ret = lm.minimize(params);
+
+  // update the parameters
+  center_ = Eigen::Vector3f(params[0], params[1], params[2]);
+  radius_ = params[3];
+
+  // recompute the inliers
+  computeInliersIndices(cloud, octree, remaining_points, true);
 }
 
 }  // namespace efficient_ransac

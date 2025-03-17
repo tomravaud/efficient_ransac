@@ -5,8 +5,9 @@ num_inliers_min: 100
 max_num_shapes: 100
 use_localized_sampling: true
 use_subsampling: true
+use_refitting: true
 
 thresholds:
   distance: 0.1
-  normal: 1
+  normal: 0.5
 bitmap_cell_size: 0.1
