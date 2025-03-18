@@ -267,7 +267,7 @@ int Detector::detect(const std::filesystem::path &input_path,
     int best_shape_index = -1;
     int best_shape_score = 0;
 
-    for (int i = 0; i < params_.num_candidates; i++) {
+    for (int i = 0; i < candidate_shapes.size(); i++) {
       int shape_score = params_.use_subsampling
                             ? candidate_shapes[i]->expected_score()
                             : candidate_shapes[i]->inliers_indices().size();
@@ -310,7 +310,9 @@ int Detector::detect(const std::filesystem::path &input_path,
       for (auto index : best_shape_inliers) remaining_points[index] = false;
 
       // add the best shape to the extracted shapes
-      extracted_shapes.push_back(candidate_shapes[best_shape_index]);
+      extracted_shapes.push_back(std::move(candidate_shapes[best_shape_index]));
+      candidate_shapes[best_shape_index] = std::move(candidate_shapes.back());
+      candidate_shapes.pop_back();
 
       for (auto &candidate_shape : candidate_shapes) {
         if (params_.use_subsampling)
@@ -330,7 +332,6 @@ int Detector::detect(const std::filesystem::path &input_path,
                   });
         size_t remaining_candidates = 0;
         for (size_t i = 0; i < candidate_shapes.size(); ++i) {
-          if (!candidate_shapes[i]) continue;
           if (candidate_shapes[i]->expected_score() >=
               params_.num_inliers_min) {
             candidate_shapes[remaining_candidates++] = candidate_shapes[i];
@@ -346,7 +347,6 @@ int Detector::detect(const std::filesystem::path &input_path,
                   });
         size_t remaining_candidates = 0;
         for (size_t i = 0; i < candidate_shapes.size(); ++i) {
-          if (!candidate_shapes[i]) continue;
           if (candidate_shapes[i]->inliers_indices().size() >=
               params_.num_inliers_min) {
             candidate_shapes[remaining_candidates++] = candidate_shapes[i];
@@ -359,6 +359,8 @@ int Detector::detect(const std::filesystem::path &input_path,
 
       cloud_size =
           std::count(remaining_points.begin(), remaining_points.end(), true);
+
+      std::clog << "[INFO] Detected " << extracted_shapes.size() << " shapes\n";
     }
     if (params_.use_localized_sampling) {
       keep_detecting = !localizedAcceptance(
