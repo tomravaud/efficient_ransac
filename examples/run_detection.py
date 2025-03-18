@@ -1,6 +1,6 @@
 from pathlib import Path
 import datetime
-
+import shutil
 import click
 
 from efficient_ransac import Detector, Viewer
@@ -33,6 +33,9 @@ def main(
             / f"{input_path.stem}.ply"
         )
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    shutil.copy(config_path, output_path.parent / config_path.name)
+    
 
     # Efficient RANSAC detection
     detector = Detector(config_path)
