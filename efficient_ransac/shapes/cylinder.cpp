@@ -78,7 +78,8 @@ void Cylinder::extractLargestConnectedComponent(
   wrap_params.wrap_y = true;
   wrap_params.bitmap_size_y =
       static_cast<int>(std::floor((2 * M_PI * radius_ / cell_size_.y)));
-  cell_size_.y = 2 * M_PI * radius_ / wrap_params.bitmap_size_y;
+  // update the cell size temporarily to close the cylinder
+  float cell_size_y = 2 * M_PI * radius_ / wrap_params.bitmap_size_y;
 
   // fill the bitmap (only active cells are stored)
   std::unordered_map<CellCoord, std::vector<int>, CellCoordHasher> bitmap;
@@ -96,7 +97,7 @@ void Cylinder::extractLargestConnectedComponent(
 
     // cell coordinates
     int cx = static_cast<int>(std::floor(axial_coord / cell_size_.x));
-    int cy = static_cast<int>(std::floor(arc_length / cell_size_.y));
+    int cy = static_cast<int>(std::floor(arc_length / cell_size_y));
     CellCoord key = {cx, cy};
     bitmap[key].push_back(idx);
   }
