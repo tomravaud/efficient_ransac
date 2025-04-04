@@ -3,7 +3,7 @@
 ## Installation
 
 ```bash
-git clone https://github.com/TomRavaud/efficient_ransac.git
+git clone https://github.com/tomravaud/efficient_ransac.git
 cd efficient_ransac
 conda env create -f environment.yaml
 conda activate efficient_ransac
